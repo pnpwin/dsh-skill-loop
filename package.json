@@ -1,0 +1,25 @@
+{
+  "name": "@pnpwin/dsh-skill-loop",
+  "version": "0.1.1",
+  "private": true,
+  "type": "module",
+  "description": "Evidence-backed automatic skill drafts, reviewed promotion, project-scoped revisions and rollback for DSH.",
+  "exports": {
+    ".": "./src/index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./src/icon.svg"
+  },
+  "files": ["src/*.js", "src/icon.svg", "locale/*.json", "cordis.patch.yml", "README.md", "LICENSE", "UPSTREAM.md"],
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/pnpwin/dsh-skill-loop.git" },
+  "homepage": "https://github.com/pnpwin/dsh-skill-loop#readme",
+  "bugs": { "url": "https://github.com/pnpwin/dsh-skill-loop/issues" },
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } },
+  "engines": { "node": ">=22", "dsh": "0.2.2-rc.1" },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "build": "node src/check-package.js",
+    "check": "node src/check-package.js",
+    "pack:release": "node src/check-package.js --pack"
+  }
+}
