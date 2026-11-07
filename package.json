@@ -1,15 +1,17 @@
 {
   "name": "@pnpwin/dsh-skill-loop",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Evidence-backed automatic skill drafts, reviewed promotion, project-scoped revisions and rollback for DSH.",
+  "description": "Native ReAct + ACE-lite skill learning with typed entry deltas, bounded reflection, reviewed or soft-auto publication and versioned rollback for DSH.",
   "exports": {
     ".": "./src/index.js",
     "./locale/*.json": "./locale/*.json",
-    "./icon": "./src/icon.svg"
+    "./icon": "./src/icon.svg",
+    "./optimizer": "./src/optimizer.js",
+    "./bench": "./src/bench/index.js"
   },
-  "files": ["src/*.js", "src/icon.svg", "locale/*.json", "cordis.patch.yml", "README.md", "LICENSE", "UPSTREAM.md"],
+  "files": ["src/**/*.js", "src/icon.svg", "locale/*.json", "cordis.patch.yml", "README.md", "README.ru.md", "docs/*.md", "LICENSE", "UPSTREAM.md"],
   "license": "MIT",
   "repository": { "type": "git", "url": "git+https://github.com/pnpwin/dsh-skill-loop.git" },
   "homepage": "https://github.com/pnpwin/dsh-skill-loop#readme",

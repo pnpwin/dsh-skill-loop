@@ -6,3 +6,5 @@ coverage/
 .env.*
 .credentials*
 *.log
+src/IMPLEMENTATION-STATUS.md
+src/ACE-CONTRACT.md

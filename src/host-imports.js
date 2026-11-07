@@ -3,7 +3,7 @@ import { realpathSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const ALLOWED = new Set(['@deepseek-ai/schemastery', 'zod']);
+const ALLOWED = new Set(['@deepseek-ai/schemastery', 'zod', '@deepseek-ai/dsh-llm', '@deepseek-ai/dsh-tool-executor-native']);
 export function resolveHostModule(specifier, options = {}) {
   if (!ALLOWED.has(specifier)) throw new Error('Unexpected Host dependency');
   const resources = options.resourcesPath ?? process.resourcesPath;

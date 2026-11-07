@@ -22,7 +22,8 @@ test('public GitHub package keeps native runtime identities for migration', () =
   const patch = readFileSync(resolve(root, 'cordis.patch.yml'), 'utf8');
   assert.match(patch, /id: local-skill-loop/);
   assert.match(patch, /name: '@pnpwin\/dsh-skill-loop'/);
-  assert.match(readFileSync(resolve(root, 'src/runtime.js'), 'utf8'), /name: 'local_skill_loop', version: 1/);
+  assert.match(readFileSync(resolve(root, 'src/store.js'), 'utf8'), /name:\s*'local_skill_loop',\s*version:\s*1/);
+  assert.match(readFileSync(resolve(root, 'src/store.js'), 'utf8'), /name:\s*'local_skill_loop_backups',\s*version:\s*1/);
 });
 
 test('npm distribution includes entry, modules and metadata but excludes private/local artifacts', () => {

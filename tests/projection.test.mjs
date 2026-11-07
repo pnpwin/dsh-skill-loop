@@ -78,12 +78,17 @@ test('reasoning, system, developer, synthetic user and plugin outputs never trig
 });
 
 for (const [command, name] of [['node --test tests/core.test.mjs', 'bash'], ['pnpm test', 'functions.bash'], ['npm run test:unit', 'functions.bash'], ['pnpm run typecheck', 'functions.terminal_send'], ['pnpm exec tsc --noEmit', 'terminal_send'], ['npx vitest run', 'bash']]) {
-  test(`recognized verification with explicit zero: ${command}`, () => {
-    const batch = commandBatch(command, 'Tests passed\n# fail 0\n[exit code: 0]', {}, name);
+  test(`recognized verification with structured Host zero: ${command}`, () => {
+    const batch = commandBatch(command, 'Tests passed\n# fail 0', {meta:{exitCode:0}}, name);
     assert.equal(batch.confirmed, true);
     assert.equal(batch.evidence[0].verified, true);
   });
 }
+
+test('stdout exit markers cannot impersonate structured Host outcome',()=>{
+  assert.equal(commandBatch('node --test','Tests passed\n[exit code: 0]'),null);
+  assert.equal(commandBatch('node --test','exitCode: 0'),null);
+});
 
 test('explicit numeric exit metadata verifies; isError false alone does not', () => {
   assert.equal(commandBatch('node --test', 'All tests passed'), null);
@@ -113,7 +118,7 @@ for (const command of ['echo tests passed', 'cat test.js', 'npm run build', 'nod
 }
 
 test('later correction or failed result invalidates an earlier success', () => {
-  const base = [start(0), call(1, 'node --test'), result(2, '[exit code: 0]')];
+  const base = [start(0), call(1, 'node --test'), result(2, 'Tests passed', {meta:{exitCode:0}})];
   const corrected = selectBatch(fold([...base, user(3, 'Tests did not pass'), end(4)]));
   assert.equal(corrected.confirmed, false);
   assert.equal(corrected.signal, 'correction');
@@ -122,7 +127,7 @@ test('later correction or failed result invalidates an earlier success', () => {
 });
 
 test('latest completed work window alone triggers; prior context does not retrigger', () => {
-  let state = fold([start(0), assistant(1, 'Fixed the reducer'), call(2, 'node --test'), result(3, '[exit code: 0]'), end(4)]);
+  let state = fold([start(0), assistant(1, 'Fixed the reducer'), call(2, 'node --test'), result(3, 'Tests passed', {meta:{exitCode:0}}), end(4)]);
   assert.equal(selectBatch(state).confirmed, true);
   state = fold([user(5, 'Read the next file'), start(6, 2)], state);
   assert.equal(selectBatch(state), null);
@@ -178,7 +183,7 @@ test('malformed arbitrary JSON events are ignored without throwing', () => {
 test('own properties only; prototype call ids cannot inject inherited commands', () => {
   let state = fold([start(0), result(1, '[exit code: 0]', {}, 1, 'toString'), end(2)]);
   assert.equal(selectBatch(state), null);
-  state = fold([start(0), call(1, 'node --test', 'bash', 1, '__proto__'), result(2, '[exit code: 0]', {}, 1, '__proto__'), end(3)]);
+  state = fold([start(0), call(1, 'node --test', 'bash', 1, '__proto__'), result(2, 'Tests passed', {meta:{exitCode:0}}, 1, '__proto__'), end(3)]);
   assert.equal(selectBatch(state).confirmed, true);
   assert.equal({}.recognized, undefined);
   assert.equal(foldProjection(initialProjection({}), Object.create({ seq: 0, type: 'user/message', data: { source: { kind: 'user' }, content: 'It works' } })).events.length, 0);
@@ -261,7 +266,7 @@ test('native DSH foreground settlement supplies actual exit proof and strict cor
 test('real Node spec summary with zero cancelled is successful, positive failures are not', () => {
   const output='✔ accept exact bounded identifier\n✔ reject parent traversal\nℹ tests 12\nℹ suites 0\nℹ pass 12\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\n';
   assert.equal(selectBatch(nativeState({}, output)).confirmed,true);
-  assert.equal(commandBatch('node --test',output+'[exit code: 0]').confirmed,true);
+  assert.equal(commandBatch('node --test',output,{meta:{exitCode:0}}).confirmed,true);
   for(const counter of ['fail','cancelled']) {
     const failed=output.replace(`ℹ ${counter} 0`,`ℹ ${counter} 1`);
     assert.equal(selectBatch(nativeState({},failed)),null);
@@ -319,7 +324,7 @@ test('native outcomes need known session, exact unredacted label and foreground 
   }
   const background = call(1, 'node --test');
   background.data.arguments = JSON.stringify({ command: 'node --test', run_in_background: true });
-  assert.equal(selectBatch(fold([start(0), background, native(2), result(3, '[exit code: 0]'), end(4)])), null);
+  assert.equal(selectBatch(fold([start(0), background, native(2), result(3, 'Tests passed', {meta:{exitCode:0}}), end(4)])), null);
   assert.equal(selectBatch(fold([start(0), call(1, 'node --test', 'terminal_send'), native(2), result(3, 'Tests passed'), end(4)])), null);
   const command = 'node --test token=supersecret';
   const state = fold([start(0), call(1, command), native(2, {}, command), result(3, 'Tests passed'), end(4)]);

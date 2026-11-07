@@ -4,8 +4,10 @@ import { installRuntime } from './runtime.js';
 const schemaModule = await hostImport('@deepseek-ai/schemastery');
 const Schema = schemaModule.default;
 const { z } = await hostImport('zod');
+const {createUserMessage} = await hostImport('@deepseek-ai/dsh-llm');
+const {NativeToolExecutor} = await hostImport('@deepseek-ai/dsh-tool-executor-native');
 export const name = 'local-skill-loop';
-export const inject = ['skills', 'tools', 'commands', 'llm', 'agents', 'workingDirectory', 'sessionProjections', 'storageDomain', 'systemPrompt'];
+export const inject = ['skills', 'tools', 'commands', 'llm', 'agents', 'agentLoop', 'workingDirectory', 'sessionProjections', 'storageDomain', 'systemPrompt'];
 export const Config = Schema.object({
   enabled: Schema.boolean().default(true).volatile(),
   initialMode: Schema.union(['review', 'auto']).default('review'),
@@ -16,7 +18,11 @@ export const Config = Schema.object({
   timeoutMs: Schema.number().step(1).min(5000).max(120000).default(45000),
   cooldownMs: Schema.number().step(1).min(0).max(3600000).default(60000),
   dailyReviews: Schema.number().step(1).min(1).max(100).default(12),
+  maxAuxCallsPerDay: Schema.number().step(1).min(1).max(200).default(12),
+  verificationMaxCalls: Schema.number().step(1).min(1).max(100).default(18),
+  verificationTimeoutMs: Schema.number().step(1).min(5000).max(300000).default(120000),
+  declarativeCaseSetsJson: Schema.string().default(''),
 });
 export async function apply(ctx, config) {
-  await installRuntime(ctx, config, { z });
+  await installRuntime(ctx, config, { z,NativeToolExecutor,createUserMessage });
 }

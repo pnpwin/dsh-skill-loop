@@ -6,11 +6,11 @@ import { spawnSync } from 'node:child_process';
 // Development/release validation only; never imported by the plugin Host.
 export function checkPackage(root = resolve(dirname(fileURLToPath(import.meta.url)), '..')) {
   const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
-  const rootMetadata = new Set(['package.json', 'cordis.patch.yml', 'README.md', 'LICENSE', 'UPSTREAM.md', '.gitignore']);
+  const rootMetadata = new Set(['package.json', 'cordis.patch.yml', 'README.md', 'README.ru.md', 'LICENSE', 'UPSTREAM.md', '.gitignore']);
   for (const entry of readdirSync(root, { withFileTypes: true })) {
     if (entry.isFile() && !rootMetadata.has(entry.name)) throw new Error(`Unexpected root file: ${entry.name}; code belongs in src/`);
   }
-  for (const file of ['src/index.js', 'src/host-imports.js', 'src/runtime.js', 'src/core.js', 'src/projection.js', 'src/prompts.js', 'src/icon.svg', 'locale/en.json', 'locale/ru.json', 'LICENSE', 'UPSTREAM.md']) {
+  for (const file of ['src/index.js', 'src/host-imports.js', 'src/runtime.js', 'src/core.js', 'src/projection.js', 'src/prompts.js', 'src/ace-core.js', 'src/feedback.js', 'src/review.js', 'src/store.js', 'src/optimizer.js', 'src/bench/runner.js', 'src/bench/native-case.js', 'src/icon.svg', 'locale/en.json', 'locale/ru.json', 'LICENSE', 'UPSTREAM.md']) {
     if (!statSync(resolve(root, file)).isFile()) throw new Error(`Missing release resource: ${file}`);
   }
   if (pkg.exports?.['.'] !== './src/index.js' || pkg.exports?.['./icon'] !== './src/icon.svg') throw new Error('Entry/icon exports must resolve under src/');
@@ -20,7 +20,7 @@ export function checkPackage(root = resolve(dirname(fileURLToPath(import.meta.ur
     const locale = JSON.parse(readFileSync(resolve(root, `locale/${language}.json`), 'utf8'));
     if (!locale.meta?.title || !locale.meta?.description) throw new Error(`Missing ${language} display metadata`);
   }
-  const code = readdirSync(resolve(root, 'src')).filter(file => file.endsWith('.js'));
+  const code = readdirSync(resolve(root, 'src'),{recursive:true}).filter(file => file.endsWith('.js'));
   for (const file of code) {
     const full = resolve(root, 'src', file);
     const syntax = spawnSync(process.execPath, ['--check', full], { encoding: 'utf8' });

@@ -91,7 +91,7 @@ function resultOutcome(data, message, text, native = null) {
   const badOutput = zeroTests
     || /\b(?:fail(?:ed|ure|ures)?|errors?|exception|traceback|cancelled|canceled|timed out|timeout)\b|ошибк|провален/iu.test(withoutZeroFailures);
   return { failed, verified: !failed && !badOutput
-    && (native !== null ? native.verified : [...codes, ...textCodes].includes(0)) };
+    && (native !== null ? native.verified : codes.includes(0)) };
 }
 
 export function initialProjection(header, inheritedEventCount = 0) {
