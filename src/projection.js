@@ -84,8 +84,8 @@ function resultOutcome(data, message, text, native = null) {
     .map(match => Number(match[1]));
   const zeroTests = /\bno tests?(?: found)?\b|\b0 tests?\b|^\s*#?\s*(?:tests?|pass(?:ed)?)\s*[:=]?\s*0\s*$|\bTests:\s*(?:0 passed|\d+ skipped,\s*\d+ total)/imu.test(text);
   const withoutZeroFailures = text
-    .replace(/\b0\s+(?:tests?\s+)?(?:failed|failures?|errors?)\b/giu, '')
-    .replace(/\b(?:fail|failed|failures?|errors?)\s*[:=]?\s*0\b/giu, '');
+    .replace(/\b0\s+(?:tests?\s+)?(?:failed|failures?|errors?|exceptions?|cancelled|canceled|timeouts?)\b/giu, '')
+    .replace(/\b(?:fail|failed|failures?|errors?|exceptions?|cancelled|canceled|timeouts?)\s*[:=]?\s*0\b/giu, '');
   const failed = error || [...codes, ...textCodes].some(code => code !== 0)
     || native?.failed === true;
   const badOutput = zeroTests

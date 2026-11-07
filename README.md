@@ -1,13 +1,13 @@
 # Skill loop для DeepSeek Harness
 
-[GitHub](https://github.com/pnpwin/dsh-skill-loop) · MIT · `@pnpwin/dsh-skill-loop` · v0.1.2
+[GitHub](https://github.com/pnpwin/dsh-skill-loop) · MIT · `@pnpwin/dsh-skill-loop` · v0.1.3
 
 ## Установка из GitHub
 
-В DSH установите bundle `github:pnpwin/dsh-skill-loop#v0.1.2` через Plugin Manager. Для агента:
+В DSH установите bundle `github:pnpwin/dsh-skill-loop#v0.1.3` через Plugin Manager. Для агента:
 
 ```json
-{"action":"install_bundle","target":"github:pnpwin/dsh-skill-loop#v0.1.2","enabled":true}
+{"action":"install_bundle","target":"github:pnpwin/dsh-skill-loop#v0.1.3","enabled":true}
 ```
 
 DSH runtime: **0.2.2-rc.1**, Node.js ≥22. Это готовые ESM-модули: установка не запускает build/prepare/install scripts и не скачивает runtime dependencies. GitHub-репозиторий публичный; флаг `private` в манифесте лишь предотвращает случайную публикацию в npm.
@@ -63,6 +63,10 @@ UPSTREAM.md
 `isError:false`, отсутствие исключения, «готово» от агента и сам текст предложения **не являются подтверждением**. Позднее отрицательное свидетельство в той же выборке снимает подтверждение. Предложение/урок должны ссылаться на фактический источник подтверждения, а не только на утверждение ассистента.
 
 Эвристики намеренно консервативны и не покрывают все языки, runners и формулировки. Нельзя доказать причинную связь теста и исправления одним regex. Native-корреляция v0.1.2 поддерживает короткие foreground bash-проверки. Для long-running/background задач без полного связанного результата подтверждение не выдаётся (fail-closed); нужен явный проверенный результат или human confirm. Поэтому стартовый режим — review.
+
+### Исправление v0.1.3
+
+Live smoke-тест дополнительно выявил, что стандартный отчёт Node содержит `cancelled 0`. Нулевые счётчики failures/errors/cancellations/timeouts теперь исключаются из признаков ошибки; положительные счётчики и настоящий native cancelled по-прежнему блокируют подтверждение. Интеграционный fixture включает полный реальный формат Node spec summary, а не одни точки/stdout.
 
 ### Исправление v0.1.2
 

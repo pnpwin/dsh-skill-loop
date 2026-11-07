@@ -125,7 +125,7 @@ function nativeWork(f) {
   const command='node --test tests/core.test.mjs';
   f.emit('tool/call',{turn:1,step:1,callId:'native-call',name:'bash',arguments:JSON.stringify({command})});
   const jobSeq=f.emit('job/settled',{jobId:'bash-native',owner:f.agent.id,kind:'bash',label:command,toolCall:{callId:'native-call',rootCallId:'native-call'},status:'completed',cause:'producer',producerReported:true,detail:'exit code: 0'});
-  const resultSeq=f.emit('tool/result',{turn:1,step:1,message:{toolCallId:'native-call',isError:false,content:[{type:'text',text:'....\n'}]},meta:{cwd:root}});
+  const resultSeq=f.emit('tool/result',{turn:1,step:1,message:{toolCallId:'native-call',isError:false,content:[{type:'text',text:'✔ validation\nℹ tests 12\nℹ pass 12\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\n'}]},meta:{cwd:root}});
   f.emit('turn/end',{turn:1,reason:{kind:'completed'}});
   return {jobSeq,resultSeq};
 }

@@ -258,6 +258,17 @@ test('native DSH foreground settlement supplies actual exit proof and strict cor
   assert.deepEqual(output.project.lessons[0].provenance.evidence.map(entry => entry.seq), [2, 3]);
 });
 
+test('real Node spec summary with zero cancelled is successful, positive failures are not', () => {
+  const output='✔ accept exact bounded identifier\n✔ reject parent traversal\nℹ tests 12\nℹ suites 0\nℹ pass 12\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\n';
+  assert.equal(selectBatch(nativeState({}, output)).confirmed,true);
+  assert.equal(commandBatch('node --test',output+'[exit code: 0]').confirmed,true);
+  for(const counter of ['fail','cancelled']) {
+    const failed=output.replace(`ℹ ${counter} 0`,`ℹ ${counter} 1`);
+    assert.equal(selectBatch(nativeState({},failed)),null);
+  }
+  assert.equal(selectBatch(nativeState({status:'cancelled'},output)),null);
+});
+
 for (const extra of [
   { owner: 'foreign' }, { owner: null }, { kind: 'terminal' }, { label: 'node --test other.mjs' },
   { toolCall: { callId: 'other', rootCallId: 'other' } }, { toolCall: { callId: 'c1', rootCallId: 'other' } },

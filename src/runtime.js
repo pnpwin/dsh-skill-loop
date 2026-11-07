@@ -57,7 +57,7 @@ export async function installRuntime(ctx, config, { z }) {
     await domain.close();
   });
   const projection = await ctx.sessionProjections.register({
-    key: 'local-skill-loop-observations', stateVersion: 2,
+    key: 'local-skill-loop-observations', stateVersion: 3,
     stateSchema: z.custom(value => value && typeof value === 'object' && value.version === 1 && Array.isArray(value.events)),
     init: initialProjection, apply: foldProjection,
   });
