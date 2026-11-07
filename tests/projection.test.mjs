@@ -18,6 +18,15 @@ const fold = (events, state = initialProjection({ id: 'session-1' })) => events.
 const commandBatch = (command, output, extra = {}, name = 'functions.bash') => selectBatch(fold([
   start(0), call(1, command, name), result(2, output, extra), end(3),
 ]));
+const native = (seq, extra = {}, command = 'node --test', callId = 'c1') => e(seq, 'job/settled', {
+  jobId: 'bash-native-1', owner: 'session-1', kind: 'bash', label: command,
+  toolCall: { callId, rootCallId: callId }, status: 'completed', cause: 'producer',
+  producerReported: true, detail: 'exit code: 0', ...extra,
+});
+const nativeState = (jobExtra = {}, output = 'TAP version 13\n# tests 3\n# pass 3\n# fail 0', resultExtra = {}) => fold([
+  start(0), call(1, 'node --test'), native(2, jobExtra),
+  result(3, output, { meta: { cwd: '/workspace' }, ...resultExtra }), end(4),
+]);
 
 for (const text of ['It works!', 'Thanks, that works.', 'All tests passed.', 'Отлично, всё работает!', 'Теперь работает', 'Тесты прошли.', 'Да, получилось!']) {
   test(`explicit short human success: ${text}`, () => {
@@ -228,6 +237,117 @@ test('selected evidence is directly accepted by core staging context', () => {
   }, { runId: 'projection-integration', sessionId: 'session-1', turn: batch.turn,
     evidence: batch.evidence, confirmed: batch.confirmed, now: '2026-11-07T00:00:00Z' });
   assert.equal(output.status, 'lessons-only');
+});
+
+test('native DSH foreground settlement supplies actual exit proof and strict core evidence', () => {
+  const state = nativeState({}, '', { message: { role: 'tool', source: { kind: 'tool', callId: 'c1' },
+    toolCallId: 'c1', isError: false, content: [{ type: 'text', text: 'TAP version 13\n# tests 3\n# pass 3\n# fail 0' }] } });
+  const batch = selectBatch(state);
+  assert.equal(state.version, 1);
+  assert.equal(batch.confirmed, true);
+  assert.deepEqual(batch.confirmationSeqs, [2, 3]);
+  assert.ok(batch.evidence.some(entry => entry.seq === 2 && entry.type === 'job/settled' && entry.verified));
+  assert.ok(batch.evidence.every(entry => entry.turn === 1));
+  assert.ok(batch.evidence.every(entry => Object.keys(entry).sort().join() === 'seq,text,turn,type,verified'));
+  const output = stage(newProject('/test'), {
+    lessons: [{ kind: 'success', trigger: 'Native test proof', lesson: 'Correlate native outcomes.', evidenceSeqs: batch.confirmationSeqs }],
+    proposal: null,
+  }, { runId: 'native-integration', sessionId: 'session-1', turn: batch.turn,
+    evidence: batch.evidence, confirmed: batch.confirmed, now: '2026-11-07T00:00:00Z' });
+  assert.equal(output.status, 'lessons-only');
+  assert.deepEqual(output.project.lessons[0].provenance.evidence.map(entry => entry.seq), [2, 3]);
+});
+
+for (const extra of [
+  { owner: 'foreign' }, { owner: null }, { kind: 'terminal' }, { label: 'node --test other.mjs' },
+  { toolCall: { callId: 'other', rootCallId: 'other' } }, { toolCall: { callId: 'c1', rootCallId: 'other' } },
+  { toolCall: { callId: 'c1' } }, { turn: 2 }, { jobId: '' }, { synthetic: true },
+  { status: 'failed' }, { status: 'cancelled' }, { cause: 'cancel' }, { producerReported: false },
+  { detail: 'exit code: 1' }, { detail: 'exit code: -1' }, { detail: 'unknown' },
+]) {
+  test(`native proof fails closed: ${JSON.stringify(extra)}`, () => {
+    assert.equal(selectBatch(nativeState(extra)), null);
+  });
+}
+
+for (const [output, extra] of [
+  ['# tests 0\n# pass 0', {}], ['No tests found', {}], ['Tests failed', {}],
+  ['Error: assertion', {}], ['Tests passed\n[exit code: 1]', {}],
+  ['Tests passed', { meta: { exitCode: 1 } }], ['Tests passed', { error: { code: 'BAD' } }],
+  ['Tests passed', { message: { toolCallId: 'c1', content: 'Tests passed', isError: true } }],
+]) {
+  test(`native zero cannot override failed result: ${output} ${JSON.stringify(extra)}`, () => {
+    assert.equal(selectBatch(nativeState({}, output, extra)), null);
+  });
+}
+
+test('native failure cannot be masked by an explicit zero in result', () => {
+  assert.equal(selectBatch(nativeState({ status: 'failed' }, '[exit code: 0]')), null);
+  assert.equal(selectBatch(nativeState({ detail: 'exit code: 1' }, '[exit code: 0]')), null);
+});
+
+test('native correlation rejects before-call, late, cross-turn and inherited settlements', () => {
+  for (const events of [
+    [start(0), native(1), call(2, 'node --test'), result(3, 'Tests passed'), end(4)],
+    [start(0), call(1, 'node --test'), result(2, 'Tests passed'), native(3), end(4)],
+    [start(0), call(1, 'node --test'), end(2), start(3, 2), native(4), result(5, 'Tests passed', {}, 2), end(6, 2)],
+    [start(0), call(1, 'node --test'), native(2), result(3, 'Tests passed', {}, 2), end(4)],
+  ]) assert.equal(selectBatch(fold(events)), null);
+  assert.equal(selectBatch(fold([start(0), call(1, 'node --test'), native(2), result(3, 'Tests passed'), end(4)], initialProjection({ id: 'session-1' }, 2))), null);
+  let state = fold([start(0), call(1, 'node --test')]);
+  state = foldProjection(state, assistant(3, 'Still running'));
+  state = foldProjection(state, native(2));
+  state = fold([result(4, 'Tests passed'), end(5)], state);
+  assert.equal(selectBatch(state), null);
+});
+
+test('native outcomes need known session, exact unredacted label and foreground bash', () => {
+  assert.equal(selectBatch(fold([start(0), call(1, 'node --test'), native(2), result(3, 'Tests passed'), end(4)], initialProjection({}))), null);
+  for (const command of ['git status', 'echo passed', 'node --test; echo passed']) {
+    assert.equal(selectBatch(fold([start(0), call(1, command), native(2, {}, command), result(3, 'Tests passed'), end(4)])), null);
+  }
+  const background = call(1, 'node --test');
+  background.data.arguments = JSON.stringify({ command: 'node --test', run_in_background: true });
+  assert.equal(selectBatch(fold([start(0), background, native(2), result(3, '[exit code: 0]'), end(4)])), null);
+  assert.equal(selectBatch(fold([start(0), call(1, 'node --test', 'terminal_send'), native(2), result(3, 'Tests passed'), end(4)])), null);
+  const command = 'node --test token=supersecret';
+  const state = fold([start(0), call(1, command), native(2, {}, command), result(3, 'Tests passed'), end(4)]);
+  assert.equal(selectBatch(state), null);
+  assert.ok(!JSON.stringify(state).includes('supersecret'));
+});
+
+test('generic successful or unknown follow-ups are neutral; failures and unknown verification invalidate', () => {
+  const base = [start(0), call(1, 'node --test'), native(2), result(3, 'Tests passed')];
+  for (const [command, output, expected] of [
+    ['git status', '', true], ['git status', '[exit code: 0]', true], ['cat index.js', 'file contents', true],
+    ['git status', '[exit code: 1]', false], ['cat index.js', 'const error = null;\n[exit code: 0]', true],
+    ['cat index.js', 'Tests failed is only file contents', true],
+    ['node --test', 'Tests passed', false], ['node --test', '[exit code: 1]', false],
+  ]) {
+    const batch = selectBatch(fold([...base, call(4, command), result(5, output), end(6)]));
+    assert.equal(batch.confirmed, expected, `${command}: ${output}`);
+    assert.deepEqual(batch.confirmationSeqs, expected ? [2, 3] : []);
+  }
+  const toolError = selectBatch(fold([...base, call(4, 'git status'), result(5, '', { message: { toolCallId: 'c1', content: '', isError: true } }), end(6)]));
+  assert.equal(toolError.confirmed, false);
+  const nativeFailure = selectBatch(fold([...base, call(4, 'git status'), native(5, { detail: 'exit code: 1' }, 'git status'), result(6, ''), end(7)]));
+  assert.equal(nativeFailure.confirmed, false);
+});
+
+test('every native proof anchor must survive evidence budgets and bounded history', () => {
+  const state = nativeState();
+  for (const maxInputChars of [25, 80, 150]) {
+    const batch = selectBatch(state, { maxInputChars });
+    if (batch?.confirmed) {
+      for (const seq of [2, 3]) assert.equal(batch.evidence.find(entry => entry.seq === seq)?.text, state.events.find(entry => entry.seq === seq).text);
+    } else if (batch) assert.deepEqual(batch.confirmationSeqs, []);
+  }
+  let evicted = fold([start(0), call(1, 'node --test'), native(2)]);
+  for (let seq = 3; seq <= 65; seq++) evicted = foldProjection(evicted, assistant(seq, 'Context'));
+  evicted = fold([result(66, 'Tests passed'), end(67)], evicted);
+  const batch = selectBatch(evicted);
+  assert.equal(batch.confirmed, false);
+  assert.deepEqual(batch.confirmationSeqs, []);
 });
 
 test('duplicate/out-of-order events and mismatched turns do not establish success', () => {

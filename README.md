@@ -1,13 +1,13 @@
 # Skill loop для DeepSeek Harness
 
-[GitHub](https://github.com/pnpwin/dsh-skill-loop) · MIT · `@pnpwin/dsh-skill-loop` · v0.1.1
+[GitHub](https://github.com/pnpwin/dsh-skill-loop) · MIT · `@pnpwin/dsh-skill-loop` · v0.1.2
 
 ## Установка из GitHub
 
-В DSH установите bundle `github:pnpwin/dsh-skill-loop#v0.1.1` через Plugin Manager. Для агента:
+В DSH установите bundle `github:pnpwin/dsh-skill-loop#v0.1.2` через Plugin Manager. Для агента:
 
 ```json
-{"action":"install_bundle","target":"github:pnpwin/dsh-skill-loop#v0.1.1","enabled":true}
+{"action":"install_bundle","target":"github:pnpwin/dsh-skill-loop#v0.1.2","enabled":true}
 ```
 
 DSH runtime: **0.2.2-rc.1**, Node.js ≥22. Это готовые ESM-модули: установка не запускает build/prepare/install scripts и не скачивает runtime dependencies. GitHub-репозиторий публичный; флаг `private` в манифесте лишь предотвращает случайную публикацию в npm.
@@ -58,11 +58,15 @@ UPSTREAM.md
 Автоматически:
 
 - короткое однозначное сообщение настоящего пользователя: «Теперь работает», «Всё работает», «Тесты прошли», `It works`, `All tests passed`;
-- распознанный запуск тестов/typecheck с явным кодом завершения 0 и без признаков ошибок. Поддержаны простые `node --test`, `bun test`, npm/pnpm/yarn test/typecheck, vitest/jest, tsc --noEmit. Shell chains/pipes, build-only, generic echo, списки тестов, очевидные zero-tests/skip-only результаты не подтверждают успех.
+- распознанный запуск тестов/typecheck с явным кодом завершения 0 и без признаков ошибок. В DSH v0.2.2 native код берётся из `job/settled`, строго сопоставленного по session owner, call ID, label и текущему turn с `tool/result`; в provenance нужны оба события. Поддержаны простые `node --test`, `bun test`, npm/pnpm/yarn test/typecheck, vitest/jest, tsc --noEmit. Shell chains/pipes, build-only, generic echo, списки тестов, очевидные zero-tests/skip-only результаты не подтверждают успех.
 
 `isError:false`, отсутствие исключения, «готово» от агента и сам текст предложения **не являются подтверждением**. Позднее отрицательное свидетельство в той же выборке снимает подтверждение. Предложение/урок должны ссылаться на фактический источник подтверждения, а не только на утверждение ассистента.
 
-Эвристики намеренно консервативны и не покрывают все языки, runners и формулировки. Нельзя доказать причинную связь теста и исправления одним regex. Поэтому стартовый режим — review.
+Эвристики намеренно консервативны и не покрывают все языки, runners и формулировки. Нельзя доказать причинную связь теста и исправления одним regex. Native-корреляция v0.1.2 поддерживает короткие foreground bash-проверки. Для long-running/background задач без полного связанного результата подтверждение не выдаётся (fail-closed); нужен явный проверенный результат или human confirm. Поэтому стартовый режим — review.
+
+### Исправление v0.1.2
+
+Живая проверка выявила отличие от прежних fake Host fixtures: успешный `bash` возвращает обычный stdout, а exit status DSH хранит отдельно в `job/settled`. Старый parser не видел этот статус и оставлял такие результаты unconfirmed. Исправление использует durable native outcome, не доверяет одному `isError:false`, требует ссылки на native outcome и результат. Посторонний успешный `git status`/read после теста больше не отменяет подтверждение; реальная ошибка и неизвестный результат следующей verification всё ещё отменяют. Projection revision повышена; storage domain и пользовательские данные не менялись.
 
 Если полезное предложение осталось unconfirmed, пользователь может явно удостоверить проверенный результат командой `/skill-loop confirm ID`. Эта команда сохраняет human receipt, **сама не публикует**. Затем `/skill-loop approve ID`.
 

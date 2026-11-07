@@ -69,23 +69,29 @@ function commandInfo(data) {
     || /^(?:(?:npx|pnpm\s+exec|yarn\s+exec)\s+)?(?:vitest\s+run|jest)(?:\s|$)/u.test(simple)
     || /^(?:(?:npx|pnpm\s+exec|yarn\s+exec)\s+)?tsc\b(?=[\s\S]*\s--noEmit(?:\s|$))/u.test(simple)
   );
-  return { name, command: clean(command), recognized };
+  return { name, command: clean(command), recognized,
+    foreground: terminal || own(args, 'run_in_background') !== true,
+    // Never retain raw secrets or truncated command text for label matching.
+    nativeLabel: !terminal && clean(command) === command ? command : null };
 }
 
-function resultVerified(data, message, text) {
-  if (own(message, 'isError') === true || own(data, 'error')) return false;
+function resultOutcome(data, message, text, native = null) {
+  const error = own(message, 'isError') === true || Boolean(own(data, 'error'));
   const meta = own(data, 'meta');
   const codes = ['exitCode', 'exit_code'].map(key => own(meta, key))
     .filter(value => typeof value === 'number');
   const textCodes = [...text.matchAll(/(?:exit(?:ed)?(?:\s+with)?\s+code|exit_code|exitCode)\s*[:=]?\s*(-?\d+)/giu)]
     .map(match => Number(match[1]));
-  if ([...codes, ...textCodes].some(code => code !== 0)) return false;
-  if (![...codes, ...textCodes].includes(0)) return false;
-  if (/\bno tests?(?: found)?\b|\b0 tests?\b|^\s*#?\s*(?:tests?|pass(?:ed)?)\s*[:=]?\s*0\s*$|\bTests:\s*(?:0 passed|\d+ skipped,\s*\d+ total)/imu.test(text)) return false;
+  const zeroTests = /\bno tests?(?: found)?\b|\b0 tests?\b|^\s*#?\s*(?:tests?|pass(?:ed)?)\s*[:=]?\s*0\s*$|\bTests:\s*(?:0 passed|\d+ skipped,\s*\d+ total)/imu.test(text);
   const withoutZeroFailures = text
     .replace(/\b0\s+(?:tests?\s+)?(?:failed|failures?|errors?)\b/giu, '')
     .replace(/\b(?:fail|failed|failures?|errors?)\s*[:=]?\s*0\b/giu, '');
-  return !/\b(?:fail(?:ed|ure|ures)?|errors?|exception|traceback|cancelled|canceled|timed out|timeout)\b|ошибк|провален/iu.test(withoutZeroFailures);
+  const failed = error || [...codes, ...textCodes].some(code => code !== 0)
+    || native?.failed === true;
+  const badOutput = zeroTests
+    || /\b(?:fail(?:ed|ure|ures)?|errors?|exception|traceback|cancelled|canceled|timed out|timeout)\b|ошибк|провален/iu.test(withoutZeroFailures);
+  return { failed, verified: !failed && !badOutput
+    && (native !== null ? native.verified : [...codes, ...textCodes].includes(0)) };
 }
 
 export function initialProjection(header, inheritedEventCount = 0) {
@@ -126,6 +132,8 @@ export function foldProjection(state, event) {
   }
   let text = '';
   let verified = false;
+  let invalidates = false;
+  let confirmationSeqs;
   let evidenceTurn = eventTurn ?? state.currentTurn;
   if (type === 'user/message') {
     if (own(data, 'role') !== 'user' || own(own(data, 'source'), 'kind') !== 'user' || synthetic(data)) return next;
@@ -144,6 +152,30 @@ export function foldProjection(state, event) {
     const commands = Object.fromEntries([...Object.entries(state.commands)
       .filter(([id]) => id !== callId), [callId, { ...info, seq, turn: eventTurn }]].slice(-MAX_COMMANDS));
     return { ...next, commands };
+  } else if (type === 'job/settled') {
+    const callId = own(own(data, 'toolCall'), 'callId');
+    const call = typeof callId === 'string' ? own(state.commands, callId) : null;
+    // Foreground bash only: a settlement must precede its result in this turn.
+    // Jobs returned to the background (or from another owner/call) cannot attest.
+    if (!call || !call.foreground || call.nativeLabel === null || call.native
+      || state.currentTurn === null || call.turn !== state.currentTurn
+      || (eventTurn !== null && eventTurn !== state.currentTurn)
+      || typeof state.sessionId !== 'string' || !state.sessionId
+      || own(data, 'owner') !== state.sessionId || own(data, 'kind') !== 'bash'
+      || own(data, 'label') !== call.nativeLabel
+      || own(own(data, 'toolCall'), 'rootCallId') !== callId
+      || typeof own(data, 'jobId') !== 'string' || !data.jobId || data.jobId.length > 200
+      || seq <= call.seq || synthetic(data)) return next;
+    const detail = own(data, 'detail');
+    const nativeZero = own(data, 'status') === 'completed' && own(data, 'cause') === 'producer'
+      && own(data, 'producerReported') === true && typeof detail === 'string'
+      && /^exit code: 0$/u.test(detail);
+    const nativeFailed = ['failed', 'cancelled', 'canceled'].includes(own(data, 'status'))
+      || (typeof detail === 'string' && /^exit code: -?\d+$/u.test(detail) && detail !== 'exit code: 0');
+    next.commands = { ...state.commands, [callId]: { ...call, native: { seq, verified: nativeZero, failed: nativeFailed } } };
+    verified = call.recognized && nativeZero;
+    invalidates = nativeFailed || (call.recognized && !nativeZero);
+    text = `$ ${call.command}\n${String(own(data, 'status') ?? '')}: ${typeof detail === 'string' ? detail : 'unknown outcome'}`;
   } else if (type === 'tool/result') {
     const message = own(data, 'message');
     const callId = own(message, 'toolCallId');
@@ -151,7 +183,12 @@ export function foldProjection(state, event) {
     if (!record(message) || synthetic(data, message) || !call
       || state.currentTurn === null || eventTurn !== state.currentTurn || call.turn !== eventTurn) return next;
     text = visibleText(own(message, 'content'));
-    verified = call.recognized && resultVerified(data, message, text);
+    const outcome = resultOutcome(data, message, text, call.native ?? null);
+    verified = call.recognized && call.foreground && outcome.verified;
+    // Unrelated successful/unknown reads and git commands are neutral. A failed
+    // command or an unknown follow-up verification invalidates earlier success.
+    invalidates = outcome.failed || (call.recognized && !verified);
+    if (verified && call.native) confirmationSeqs = [call.native.seq, seq];
     text = `$ ${call.command}\n${text}`;
     next.commands = Object.fromEntries(Object.entries(state.commands).filter(([id]) => id !== callId));
   } else {
@@ -160,7 +197,8 @@ export function foldProjection(state, event) {
   if (!text.trim()) return next;
   // Redact before truncating so a credential crossing the length limit cannot
   // leak its prefix. Only visible text survives; no raw event/arguments retained.
-  const entry = { seq, type, text: clean(text), verified, turn: evidenceTurn };
+  const entry = { seq, type, text: clean(text), verified, turn: evidenceTurn, invalidates,
+    ...(confirmationSeqs ? { confirmationSeqs } : {}) };
   return { ...next, events: [...state.events, entry].slice(-MAX_EVENTS) };
 }
 
@@ -180,15 +218,17 @@ export function selectBatch(state, { maxInputChars = 16000, force = false } = {}
   const lastTrigger = triggers.at(-1) ?? { entry: window.at(-1), signal: 'intervention' };
   // Confirmation is about the final feedback/outcome, not an earlier passing
   // test followed by failure or a human correction in the same work window.
-  const failuresAfter = window.some(entry => entry.seq > lastTrigger.entry.seq
-    && entry.type === 'tool/result' && !entry.verified);
+  const failuresAfter = window.some(entry => entry.seq > lastTrigger.entry.seq && entry.invalidates);
   const confirmed = lastTrigger.signal === 'success' && !failuresAfter;
   // Prefer the latest trigger under small budgets, then nearby recent context.
   // Prior-turn tail supplies what the user is confirming/correcting. It is
   // context only: never participates in triggers or confirmation above.
   const priorContext = state.events.filter(entry => entry.seq >= state.inheritedEventCount
     && entry.seq < startSeq && ['assistant/message', 'tool/result'].includes(entry.type)).slice(-6);
-  const candidates = [lastTrigger.entry, ...window.filter(entry => entry !== lastTrigger.entry).reverse(),
+  const requiredSeqs = lastTrigger.entry.confirmationSeqs ?? [lastTrigger.entry.seq];
+  const anchors = window.filter(entry => requiredSeqs.includes(entry.seq));
+  const candidates = [lastTrigger.entry, ...anchors.filter(entry => entry !== lastTrigger.entry),
+    ...window.filter(entry => entry !== lastTrigger.entry && !anchors.includes(entry)).reverse(),
     ...priorContext.reverse()];
   let remaining = limit;
   const evidence = [];
@@ -197,14 +237,17 @@ export function selectBatch(state, { maxInputChars = 16000, force = false } = {}
     if (remaining <= prefix.length + 1) continue;
     const text = entry.text.slice(0, remaining - prefix.length - 1);
     if (!text) continue;
-    evidence.push({ ...entry, text, turn: entry.turn ?? turn });
+    // The staging core accepts only this public evidence shape.
+    evidence.push({ seq: entry.seq, type: entry.type, text, verified: entry.verified, turn: entry.turn ?? turn });
     remaining -= prefix.length + text.length + 1;
   }
   if (!evidence.length) return null;
   evidence.sort((a, b) => a.seq - b.seq);
-  const completeTrigger = evidence.some(entry => entry.seq === lastTrigger.entry.seq
-    && entry.text === lastTrigger.entry.text);
+  const completeTrigger = requiredSeqs.every(seq => {
+    const source = window.find(entry => entry.seq === seq);
+    return source && evidence.some(entry => entry.seq === seq && entry.text === source.text);
+  });
   return { turn, lastSeq: endSeq, confirmed: confirmed && completeTrigger,
-    confirmationSeqs: confirmed && completeTrigger ? [lastTrigger.entry.seq] : [], signal: lastTrigger.signal, evidence,
+    confirmationSeqs: confirmed && completeTrigger ? requiredSeqs : [], signal: lastTrigger.signal, evidence,
     text: evidence.map(entry => `[${entry.seq} ${entry.type}] ${entry.text}`).join('\n') };
 }

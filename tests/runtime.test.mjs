@@ -118,6 +118,30 @@ test('review input stays bounded with a full library and preserves complete sele
   const batch={confirmed:true,confirmationSeqs:[1],signal:'success',turn:1,evidence:[{seq:1,type:'tool/result',text:'tests passed',verified:true}]};
   const input=buildReviewInput({batch,project:p,maxChars:12000});assert.ok(input.length<=12000);const parsed=JSON.parse(input);assert.ok(parsed.managedSkills.length<6);assert.equal(parsed.managedSkills[0].steps[0].length,1500);
 });
+function nativeWork(f) {
+  f.emit('turn/start',{turn:1});
+  f.emit('user/message',{role:'user',source:{kind:'user'},content:[{type:'text',text:'Проверь исправление тестом.'}]});
+  f.emit('assistant/message',{turn:1,step:1,message:{content:[{type:'text',text:'Исправлено сопоставление native job результата.'}]}});
+  const command='node --test tests/core.test.mjs';
+  f.emit('tool/call',{turn:1,step:1,callId:'native-call',name:'bash',arguments:JSON.stringify({command})});
+  const jobSeq=f.emit('job/settled',{jobId:'bash-native',owner:f.agent.id,kind:'bash',label:command,toolCall:{callId:'native-call',rootCallId:'native-call'},status:'completed',cause:'producer',producerReported:true,detail:'exit code: 0'});
+  const resultSeq=f.emit('tool/result',{turn:1,step:1,message:{toolCallId:'native-call',isError:false,content:[{type:'text',text:'....\n'}]},meta:{cwd:root}});
+  f.emit('turn/end',{turn:1,reason:{kind:'completed'}});
+  return {jobSeq,resultSeq};
+}
+test('real native job exit status confirms an otherwise status-free bash result',async()=>{
+  const f=await fixture();const refs=nativeWork(f);assert.equal((await f.rt.launch(f.agent,{manual:true})).status,'pending-review');
+  const p=f.data.projects.get(key(root));assert.equal(p.proposals[0].confirmed,true);assert.equal(p.skills.length,0);
+  assert.ok(p.proposals[0].provenance.evidence.some(e=>e.seq===refs.jobSeq && e.type==='job/settled' && e.verified));
+  assert.ok(p.proposals[0].provenance.evidence.some(e=>e.seq===refs.resultSeq && e.type==='tool/result'));
+  await f.close();
+});
+test('native confirmation needs both the exit record and the matched result references',async()=>{
+  const f=await fixture({config:{initialMode:'auto'},stream:async function*(o){
+    const draft=proposalFor(o);draft.proposal.evidenceSeqs=draft.proposal.evidenceSeqs.slice(-1);draft.lessons[0].evidenceSeqs=draft.proposal.evidenceSeqs;
+    yield {type:'text-delta',text:JSON.stringify(draft)};yield {type:'finish',reason:{kind:'stop'}};
+  }});nativeWork(f);assert.equal((await f.rt.launch(f.agent,{manual:true})).status,'held-unconfirmed');assert.equal(f.data.projects.get(key(root)).skills.length,0);await f.close();
+});
 test('zero-test summaries do not certify work',()=>{
   let s=initialProjection({id:'s'},0);const feed=(type,data)=>{s=foldProjection(s,{seq:s.lastSeq+1,type,data});};
   feed('turn/start',{turn:1});feed('tool/call',{turn:1,step:1,callId:'a',name:'bash',arguments:JSON.stringify({command:'node --test --test-name-pattern=DOES_NOT_EXIST'})});feed('tool/result',{turn:1,step:1,message:{toolCallId:'a',content:[{type:'text',text:'# tests 0\n# pass 0\n# fail 0\n[exit code: 0]'}]}});feed('turn/end',{turn:1});assert.equal(selectBatch(s,{force:true}).confirmed,false);

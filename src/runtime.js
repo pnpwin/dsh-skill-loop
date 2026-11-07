@@ -57,7 +57,7 @@ export async function installRuntime(ctx, config, { z }) {
     await domain.close();
   });
   const projection = await ctx.sessionProjections.register({
-    key: 'local-skill-loop-observations', stateVersion: 1,
+    key: 'local-skill-loop-observations', stateVersion: 2,
     stateSchema: z.custom(value => value && typeof value === 'object' && value.version === 1 && Array.isArray(value.events)),
     init: initialProjection, apply: foldProjection,
   });
@@ -107,8 +107,10 @@ export async function installRuntime(ctx, config, { z }) {
     if (!evidence.length) return null;
     // Filtering across a CWD/activation boundary must not retain a success flag
     // derived from evidence that is no longer supplied to the reviewer.
-    const confirmationSeqs = (batch.confirmationSeqs || []).filter(seq=>evidence.some(e=>e.seq===seq));
-    return { ...batch, evidence, confirmationSeqs, confirmed: batch.confirmed && confirmationSeqs.length>0 };
+    const requiredSeqs = batch.confirmationSeqs || [];
+    const complete = requiredSeqs.length>0 && requiredSeqs.every(seq=>evidence.some(e=>e.seq===seq));
+    const confirmationSeqs = complete ? requiredSeqs : [];
+    return { ...batch, evidence, confirmationSeqs, confirmed: batch.confirmed && complete };
   }
 
   async function runReview(agent, { force = false, manual = false, hint = '', externalSignal } = {}) {
@@ -154,7 +156,7 @@ export async function installRuntime(ctx, config, { z }) {
       if (!enabled(config) || getProject(root).paused || rootOf(agent) !== root) throw new Error('review-cancelled');
       const shownSkills = JSON.parse(input).managedSkills;
       if (draft.proposal?.baseRevision > 0 && !shownSkills.some(s=>s.name===draft.proposal.name && s.revision===draft.proposal.baseRevision)) throw new Error('unseen-update-target');
-      const citesConfirmation = item => Array.isArray(item?.evidenceSeqs) && item.evidenceSeqs.some(seq=>batch.confirmationSeqs.includes(seq));
+      const citesConfirmation = item => Array.isArray(item?.evidenceSeqs) && batch.confirmationSeqs.length>0 && batch.confirmationSeqs.every(seq=>item.evidenceSeqs.includes(seq));
       const confirmed = batch.confirmed && (!draft.proposal || citesConfirmation(draft.proposal)) && draft.lessons.every(citesConfirmation);
       let outcome;
       await mutate(root, current => {
