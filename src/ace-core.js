@@ -273,7 +273,8 @@ function record(project, c, status, id = null) {
   requireProject(next);
   return result(next, status, id);
 }
-export function stage(project, draft, c) {
+export function stage(project, draft, c, options = {}) {
+  if(!keys(options,['requirePaired','deferAuto'],[])||(options.requirePaired!==undefined&&typeof options.requirePaired!=='boolean')||(options.deferAuto!==undefined&&typeof options.deferAuto!=='boolean'))return result(project,'invalid-context');
   if (!validateProject(project)) return result(project, 'invalid-project');
   try {
     if (!contextOK(c)) return result(project, 'invalid-context');
@@ -299,7 +300,7 @@ export function stage(project, draft, c) {
     const existing = project.proposals.find(p => p.status === 'pending' && p.name === d.name);
     // Never back-publish a migrated legacy candidate, even if a later run matches it.
     if (existing?.delta && existing.candidateHash === hash && existing.confirmed === prov.confirmed && existing.evidenceStatus === evidenceStatus) {
-      const attempt = next.mode === 'auto' ? autoPublish(next, existing.id, c.now) : result(next, existing.confirmed ? 'noop-pending' : 'held-unconfirmed', existing.id);
+      const attempt = next.mode === 'auto' ? autoPublish(next, existing.id, c.now, options) : result(next, existing.confirmed ? 'noop-pending' : 'held-unconfirmed', existing.id);
       return record(attempt.project, c, attempt.status, existing.id);
     }
     if (!existing && project.proposals.filter(p => p.status === 'pending').length >= LIMIT.pending) return record(next, c, 'held-capacity');
@@ -307,7 +308,7 @@ export function stage(project, draft, c) {
       evaluationStatus: 'not-run', provenance: prov, reason: d.reason, pubReason: prov.confirmed ? 'held-review' : 'held-unconfirmed', createdAt: c.now, updatedAt: c.now };
     next = { ...next, proposals: [...next.proposals.map(old => old.status === 'pending' && old.name === p.name ? { ...old, status: 'superseded', updatedAt: c.now } : old), p] };
     next.proposals = trimProposals(next.proposals);
-    const attempt = next.mode === 'auto' ? autoPublish(next, p.id, c.now) : result(next, p.confirmed ? 'pending-review' : 'held-unconfirmed', p.id);
+    const attempt = next.mode === 'auto' ? autoPublish(next, p.id, c.now, options) : result(next, p.confirmed ? 'pending-review' : 'held-unconfirmed', p.id);
     return record(attempt.project, c, attempt.status, p.id);
   } catch (error) { return result(project, error instanceof Held ? error.status : 'invalid-or-unsafe-draft'); }
 }
@@ -390,7 +391,8 @@ function additive(p, current) {
     return before.every((id, i) => after[i] === id);
   });
 }
-export function autoPublish(project, id, now) {
+export function autoPublish(project, id, now, options = {}) {
+  if(!keys(options,['requirePaired','deferAuto'],[])||(options.requirePaired!==undefined&&typeof options.requirePaired!=='boolean')||(options.deferAuto!==undefined&&typeof options.deferAuto!=='boolean'))throw new TypeError('Invalid publication options');
   const p = pending(project, id, now);
   const held = status => result({ ...project, proposals: project.proposals.map(old => old.id === id ? { ...old, pubReason: status, updatedAt: now } : old) }, status, id);
   if (project.paused) return held('held-paused');
@@ -403,10 +405,12 @@ export function autoPublish(project, id, now) {
     if (/Stale|stale-pending/.test(error.message)) return held('held-stale');
     throw error;
   }
+  if(options.deferAuto)return held('held-evaluation');
   const soft = additive(p, current);
+  if(options.requirePaired){const m=p.evaluation?.metrics,c=m?.comparison,phaseOK=x=>object(x)&&positive(x.gains)&&x.regressions===0&&x.candidateFailed===0&&x.complete===true;if(p.evaluationStatus!=='passed'||p.evaluation?.passed!==true||m?.protocol!=='paired-skill-v1'||m.baselineHash!==snapshotHash(current??null)||c?.verdict!=='observed-gain'||c.complete!==true||!phaseOK(c.adaptation)||!phaseOK(c.holdout))return held('held-evaluation');}
   if (p.evaluationStatus === 'failed' || !soft && !(p.evaluationStatus === 'passed' && p.evaluation?.passed && p.evaluation.candidateHash === p.candidateHash && p.evaluation.scope === project.root)) return held('held-evaluation');
   if (!current && (project.skills.length >= LIMIT.skills || project.skills.filter(s => s.status === 'active').length >= LIMIT.active)) return held('held-capacity');
-  return result(publish(project, p, now, soft ? 'auto-additive' : 'auto-evaluated'), 'published', id);
+  return result(publish(project, p, now, soft && !options.requirePaired ? 'auto-additive' : 'auto-evaluated'), 'published', id);
 }
 export function rollback(project, skillName, revision, now) {
   requireProject(project); requireDate(now);

@@ -34,6 +34,11 @@ test('legacy attempts become charged auxiliary calls, never a new daily allowanc
   assert.equal(await f.store.reserve(root,{...opts,runId:'run-b',stage:'reflector'}),'claimed');assert.equal(await f.store.reserve(root,{...opts,runId:'run-b',stage:'curator'}),'auxiliary-budget');
   assert.equal(f.store.control(root).auxCalls,12);assert.ok(f.store.backups(root).some(s=>s.kind==='control'));await f.store.close();
 });
+test('evaluator and refinement consume the SAME persistent daily auxiliary quota',async()=>{
+  const f=await fixture(),opts={runId:'cycle',manual:true,dailyReviews:50,maxAuxCallsPerDay:4,cooldownMs:0};
+  assert.equal(await f.store.reserve(root,{...opts,stage:'reflector'}),'claimed');assert.equal(await f.store.reserve(root,{...opts,stage:'curator'}),'claimed');
+  const claims=await Promise.all(Array.from({length:4},()=>f.store.reserve(root,{...opts,stage:'evaluator'})));assert.equal(claims.filter(x=>x==='claimed').length,2);assert.equal(claims.filter(x=>x==='auxiliary-budget').length,2);assert.equal(f.store.control(root).attempts,1);assert.equal(f.store.control(root).auxCalls,4);assert.equal(await f.store.reserve(root,{...opts,stage:'curator'}),'auxiliary-budget');await f.store.close();
+});
 test('same-root mutations serialize without losing concurrent fields',async()=>{
   const f=await fixture();await Promise.all([f.store.mutate(root,async p=>({...p,mode:'auto'})),f.store.mutate(root,p=>({...p,paused:true}))]);assert.equal(f.store.read(root).mode,'auto');assert.equal(f.store.read(root).paused,true);await f.store.close();
 });

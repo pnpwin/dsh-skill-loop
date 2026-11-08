@@ -6,7 +6,9 @@ import { hasSecret, redact } from './core.js';
 import { initialProjection, foldProjection, selectBatch } from './projection.js';
 import { initialFeedback, foldFeedback, selectExposures, feedbackForBatch } from './feedback.js';
 import { GUIDE, AGENT_GUIDANCE } from './prompts.js';
-import {createAceLiteProposer,summarizeJudgments} from './review.js';
+import {createAceLiteProposer,summarizeJudgments,refineCurator} from './review.js';
+import {CREATOR_POLICY_VERSION} from './creator-policy.js';
+import {createPairedEvaluatorRegistry,validatePairedCaseSet} from './paired-evaluator.js';
 import { openProjectStore } from './store.js';
 import { createCallBudget, createEvaluatorRegistry,validateCaseSet } from './optimizer.js';
 import {createNativeCaseRunner} from './bench/native-case.js';
@@ -30,7 +32,8 @@ function foldAll(state,event){const base=foldProjection(state,event);const old=s
 export async function installRuntime(ctx,config,{z,runCase,caseSets=[],NativeToolExecutor,createUserMessage}={}){
   let configured=[];
   if(config.declarativeCaseSetsJson){if(config.declarativeCaseSetsJson.length>250000)throw Error('case-config-too-large');if(hasSecret(config.declarativeCaseSetsJson))throw Error('sensitive-case-config');try{configured=JSON.parse(config.declarativeCaseSetsJson);}catch{throw Error('invalid-case-config');}if(!Array.isArray(configured)||configured.length>16)throw Error('invalid-case-config');}
-  const trustedCaseSets=[...caseSets,...configured].map(validateCaseSet);
+  const trustedCaseSets=[...caseSets,...configured].map(value=>value.appliesTo?validatePairedCaseSet(value):validateCaseSet(value));
+  const requirePaired=config.requirePairedEvaluation!==false;
   if(trustedCaseSets.length>32||new Set(trustedCaseSets.map(s=>s.id)).size!==trustedCaseSets.length)throw Error('invalid-case-config');
   const lifetime=new AbortController(),jobs=new Set(),rootJobs=new Map(),inFlight=new Set(),controllers=new Map(),cuts=new Map(),hints=new Map(),restoredRoots=new Set();
   function trackJob(root,job){jobs.add(job);if(!rootJobs.has(root))rootJobs.set(root,new Set());const group=rootJobs.get(root);group.add(job);const done=()=>{jobs.delete(job);group.delete(job);if(!group.size)rootJobs.delete(root);};job.then(done,done);return job;}
@@ -63,19 +66,34 @@ export async function installRuntime(ctx,config,{z,runCase,caseSets=[],NativeToo
     if(!Object.hasOwn(p.watermarks??{},agent.id)&&Object.keys(p.watermarks??{}).length>=4096)return {status:'held-observation-capacity'};
     const selection=agent.model?.current?.(),provider=config.provider||selection?.provider,model=config.model||selection?.model;
     if(!provider||!model)return {status:'model-unavailable'};
-    const controller=new AbortController(),signal=AbortSignal.any([controller.signal,lifetime.signal,AbortSignal.timeout(config.timeoutMs),...(externalSignal?[externalSignal]:[])]);
+    const controller=new AbortController(),baseSignal=AbortSignal.any([controller.signal,lifetime.signal,...(externalSignal?[externalSignal]:[])]),signal=AbortSignal.any([baseSignal,AbortSignal.timeout(config.timeoutMs)]),budget=createCallBudget(requirePaired?2+(config.verificationMaxCalls??18):2);
     const guard=()=>enabled(config)&&!projectOf(root).paused&&rootOf(agent)===root&&!restoredRoots.has(root);
-    controllers.set(controller,{root,agentId:agent.id});inFlight.add(root);const stages=[];let judgments=[],committed=null;
+    controllers.set(controller,{root,agentId:agent.id});inFlight.add(root);const stages=[],evaluations=[];let judgments=[],reflection=null,committed=null;
     async function reserve(stage){return store.reserve(root,{runId,stage,manual,dailyReviews:config.dailyReviews,maxAuxCallsPerDay:config.maxAuxCallsPerDay??12,cooldownMs:config.cooldownMs,signal,guard});}
     try{
       let held=null;
-      const proposer=createAceLiteProposer({stream:o=>ctx.llm.stream(o),provider,model,sessionId:agent.id,config,project:p,reserve,onStage:s=>stages.push(s),onReflection:r=>{judgments=r.judgments;},onState:(status,code)=>{held={status,code};}});
+      const proposer=createAceLiteProposer({stream:o=>ctx.llm.stream(o),provider,model,sessionId:agent.id,config,project:p,reserve,onStage:s=>stages.push(s),onReflection:r=>{judgments=r.judgments;reflection=r;},onState:(status,code)=>{held={status,code};}});
       const {turn,lastSeq,signal:sourceSignal,confirmed,confirmationSeqs,evidence}=batch;
-      const proposed=await proposer.propose({batch:{turn,lastSeq,signal:sourceSignal,confirmed,confirmationSeqs,evidence},feedback,hint},{budget:createCallBudget(2),signal});
+      const proposed=await proposer.propose({batch:{turn,lastSeq,signal:sourceSignal,confirmed,confirmationSeqs,evidence},feedback,hint},{budget,signal});
       signal.throwIfAborted();if(!guard())throw Error('review-cancelled');let outcome;
-      await store.mutate(root,current=>{outcome=ace.stage(current,proposed.candidate??{lessons:[],proposal:null},{runId,sessionId:agent.id,turn:batch.turn,evidence:batch.evidence,confirmed:batch.confirmed,confirmationSeqs:batch.confirmationSeqs,outcome:feedback?.outcome??'unverified',episodeEndSeq:batch.lastSeq,now:nowISO()});return outcome.project;},{signal,guard});
-      const status=held?.status??outcome.status,code=held?.code??'';committed={status,code,proposalId:outcome.proposalId};
-      await store.finish(root,status,code,{runId,stages,judgments});return committed;
+      await store.mutate(root,current=>{outcome=ace.stage(current,proposed.candidate??{lessons:[],proposal:null},{runId,sessionId:agent.id,turn:batch.turn,evidence:batch.evidence,confirmed:batch.confirmed,confirmationSeqs:batch.confirmationSeqs,outcome:feedback?.outcome??'unverified',episodeEndSeq:batch.lastSeq,now:nowISO()},{requirePaired,deferAuto:requirePaired});return outcome.project;},{signal,guard});
+      let status=held?.status??outcome.status,code=held?.code??'';committed={status,code,proposalId:outcome.proposalId};
+      if(requirePaired&&config.autoEvaluate!==false&&outcome.proposalId){
+        const candidate=projectOf(root).proposals.find(x=>x.id===outcome.proposalId&&x.status==='pending');
+        if(candidate){
+          try{
+            const result=await verify(agent,root,candidate,undefined,baseSignal,{budget,telemetry:false,onTraining:t=>evaluations.push(t),refine:async(old,trainingFeedback,{budget,signal:evalSignal})=>{
+              const draft=await refineCurator({stream:o=>ctx.llm.stream(o),provider,model,sessionId:agent.id,config,project:projectOf(root),batch,reflection,candidateName:old.name,adaptationFeedback:trainingFeedback,budget,signal:evalSignal,reserve:stage=>store.reserve(root,{runId,stage,manual,dailyReviews:config.dailyReviews,maxAuxCallsPerDay:config.maxAuxCallsPerDay??12,cooldownMs:0,signal:evalSignal,guard}),onStage:s=>stages.push(s)});
+              if(!draft)return null;let revised;
+              await store.mutate(root,current=>{revised=ace.stage(current,{lessons:[],proposal:draft},{runId:hash(runId+'\\0refine'),sessionId:agent.id,turn:batch.turn,evidence:batch.evidence,confirmed:batch.confirmed,confirmationSeqs:batch.confirmationSeqs,outcome:feedback?.outcome??'unverified',now:nowISO()},{requirePaired:true,deferAuto:true});return revised.project;},{signal:evalSignal,guard});
+              return revised.proposalId?projectOf(root).proposals.find(x=>x.id===revised.proposalId&&x.status==='pending')??null:null;
+            }});
+            outcome.proposalId=result.proposalId??outcome.proposalId;evaluations.push({receipt:result.receipt??null,publication:result.publication,budget:result.budget??budget.snapshot()});status=result.publication;code=result.receipt?.metrics?.comparison?.verdict??result.publication;
+          }catch(error){if(error.telemetry)stages.push(error.telemetry);status='held-evaluation';code=baseSignal.aborted?'evaluation-aborted':compact(error);}
+        }
+      }
+      committed={status,code,proposalId:outcome.proposalId};
+      await store.finish(root,status,code,{runId,stages,judgments,evaluations,budget:budget.snapshot(),creatorPolicy:CREATOR_POLICY_VERSION});return committed;
     }catch(error){
       if(committed){ctx.logger.warn('ACE project committed; telemetry unavailable: %s',compact(error));return {...committed,telemetry:'unavailable',telemetryCode:compact(error)};}
       if(error.telemetry&&!stages.includes(error.telemetry))stages.push(error.telemetry);
@@ -84,7 +102,7 @@ export async function installRuntime(ctx,config,{z,runCase,caseSets=[],NativeToo
     }finally{controllers.delete(controller);inFlight.delete(root);}
   }
   function launch(agent,options){const root=rootOf(agent),job=trackJob(root,runReview(agent,options));job.catch(e=>ctx.logger.warn('ACE review failed: %s',compact(e)));return job;}
-  function status(root){const p=projectOf(root),c=store.control(root);return {...ace.summary(p),engine:'ace-lite',budget:{dailyLimit:config.dailyReviews,attempts:c.attempts,maxAuxCallsPerDay:config.maxAuxCallsPerDay??12,auxCalls:c.auxCalls},lastReview:{status:c.status,code:c.code,at:c.updatedAt,telemetry:c.telemetry?.at(-1)??null},storageRestored:restoredRoots.has(root)};}
+  function status(root){const p=projectOf(root),c=store.control(root);return {...ace.summary(p),engine:'ace-lite',version:'0.2.4',creator:{policy:CREATOR_POLICY_VERSION,requirePairedEvaluation:requirePaired,autoEvaluate:config.autoEvaluate!==false,maxRefinements:config.maxRefinements??1,matchingCaseSets:trustedCaseSets.filter(s=>s.appliesTo?.root===root).map(s=>({id:s.id,names:s.appliesTo.names}))},budget:{dailyLimit:config.dailyReviews,attempts:c.attempts,maxAuxCallsPerDay:config.maxAuxCallsPerDay??12,auxCalls:c.auxCalls},lastReview:{status:c.status,code:c.code,at:c.updatedAt,telemetry:c.telemetry?.at(-1)??null},storageRestored:restoredRoots.has(root)};}
   ctx.skills.registerProvider(control=>{invalidate=control.invalidate;const visible=cwd=>{const root=canonicalRoot(cwd);return root?projectOf(root).skills.filter(s=>s.status==='active'):[];};return {
     name:PROVIDER,
     async list(options){if(!enabled(config))return [];const root=canonicalRoot(options.cwd);if(!root)return [];return visible(options.cwd).map(s=>({name:s.name,description:s.description,whenToUse:s.trigger,invocation:{modelInvocable:true,userInvocable:true},source:'custom',provider:PROVIDER,resourceBase:{kind:'opaque',description:'Project-scoped versioned skill; history: /skill-loop show '+s.name},rank:25,locator:{project:hash(root),name:s.name,revision:s.revision}}));},
@@ -100,18 +118,36 @@ export async function installRuntime(ctx,config,{z,runCase,caseSets=[],NativeToo
     throw Error('Unknown action');
   }});
   function readItem(p,id){const telemetry=store.control(p.root).telemetry;const proposal=p.proposals.find(x=>x.id===id);if(proposal)return {schemaVersion:2,proposal:{...proposal,...ace.contentView(proposal)},diff:projectDiff(p.skills.find(x=>x.name===proposal.name),proposal),modelJudgments:summarizeJudgments(proposal,telemetry)};const skill=p.skills.find(x=>x.name===id);if(!skill)throw Error('Skill or proposal not found');return {schemaVersion:2,skill:{...skill,...ace.contentView(skill)},modelJudgments:summarizeJudgments(skill,telemetry),content:skill.status==='active'?ace.renderSkill(skill):'Archived skill; restore explicitly before use.'};}
-  async function verify(agent,root,candidate,caseSetId,externalSignal){
-    const executeCase=runCase??createNativeCaseRunner(ctx,{NativeToolExecutor,createUserMessage,ownerAgent:agent,provider:config.provider,model:config.model});
+  async function verify(agent,root,candidate,caseSetId,externalSignal,options={}){
     const controller=new AbortController();controllers.set(controller,{root,agentId:agent.id});
     const signal=AbortSignal.any([controller.signal,lifetime.signal,...(externalSignal?[externalSignal]:[]),AbortSignal.timeout(config.verificationTimeoutMs??120000)]);
     const guard=()=>enabled(config)&&rootOf(agent)===root&&!projectOf(root).paused&&!restoredRoots.has(root);
+    const budget=options.budget??createCallBudget(config.verificationMaxCalls??18),selection=agent.model?.current?.()??{},model={provider:config.provider||selection.provider,model:config.model||selection.model,...(selection.reasoningEffort?{reasoningEffort:selection.reasoningEffort}:{})};
+    let nativeCase;const executeCase=args=>{nativeCase??=runCase??createNativeCaseRunner(ctx,{NativeToolExecutor,createUserMessage,ownerAgent:agent,provider:model.provider,model:model.model,preloadCandidate:requirePaired,onDispatch:async()=>{signal.throwIfAborted();if(!guard())throw Error('verification-cancelled');if(requirePaired){const claim=await store.reserve(root,{runId:'evaluation-'+candidate.id,stage:'evaluator',manual:true,dailyReviews:config.dailyReviews,maxAuxCallsPerDay:config.maxAuxCallsPerDay??12,cooldownMs:0,signal,guard});if(claim!=='claimed')throw Error(claim);}}});return nativeCase(args);};
     const job=(async()=>{
       signal.throwIfAborted();if(!guard())throw Error('verification-cancelled');
-      const registry=createEvaluatorRegistry({runCase:executeCase,hashCandidate:ace.candidateHash});for(const cases of trustedCaseSets)registry.registerCaseSet(cases);
-      const receipt=await registry.evaluate(candidate,caseSetId,{scope:root,budget:createCallBudget(config.verificationMaxCalls??18),signal,timeoutMs:config.verificationTimeoutMs??120000});
+      let registry,receipt,report=null,refined=false;
+      if(requirePaired){
+        registry=createPairedEvaluatorRegistry({runCase:executeCase,hashCandidate:ace.candidateHash,hashBaseline:ace.snapshotHash,model});
+        for(const cases of trustedCaseSets){try{registry.registerCaseSet(cases);}catch{ctx.logger.warn('Paired evaluator skipped incompatible trusted suite %s',cases.id);}}
+        caseSetId=caseSetId??registry.select(root,candidate.name);
+        if(!caseSetId)return {publication:'held-no-trusted-cases',receipt:null,policy:CREATOR_POLICY_VERSION};
+        const baseline=projectOf(root).skills.find(s=>s.name===candidate.name&&s.status==='active')??null;
+        let training=await registry.train(candidate,caseSetId,{baseline,scope:root,budget,signal});options.onTraining?.(training);
+        if(training.verdict==='candidate-failed'&&typeof options.refine==='function'&&(config.maxRefinements??1)>0&&budget.snapshot().remaining>=5){
+          const updated=await options.refine(candidate,registry.feedback(training),{budget,signal});
+          if(updated){candidate=updated;refined=true;training=await registry.train(candidate,caseSetId,{baseline,scope:root,budget,signal});options.onTraining?.(training);}
+        }
+        const evaluated=await registry.finalize(candidate,caseSetId,{baseline,scope:root,budget,signal,training});receipt=evaluated.receipt;report=evaluated.report;
+      }else{
+        registry=createEvaluatorRegistry({runCase:executeCase,hashCandidate:ace.candidateHash});for(const cases of trustedCaseSets)registry.registerCaseSet(cases);
+        receipt=await registry.evaluate(candidate,caseSetId,{scope:root,budget,signal,timeoutMs:config.verificationTimeoutMs??120000});
+      }
       signal.throwIfAborted();if(!guard()||!registry.owns(receipt,{candidateHash:candidate.candidateHash,scope:root}))throw Error('invalid-evaluation-receipt');
-      let decision;await store.mutate(root,c=>{let next=ace.attachEvaluation(c,candidate.id,receipt,nowISO());if(next.mode==='auto'){decision=ace.autoPublish(next,candidate.id,nowISO());next=decision.project;}return next;},{signal,guard});
-      return {receipt,publication:decision?.status??'pending-review'};
+      let decision;await store.mutate(root,c=>{let next=ace.attachEvaluation(c,candidate.id,receipt,nowISO());if(next.mode==='auto'){decision=ace.autoPublish(next,candidate.id,nowISO(),{requirePaired});next=decision.project;}return next;},{signal,guard});
+      const value={receipt,proposalId:candidate.id,publication:decision?.status??'pending-review',refined,...(report?{report}:{}),budget:budget.snapshot()};
+      if(options.telemetry!==false)await store.finish(root,value.publication,receipt.metrics?.comparison?.verdict??'',{runId:receipt.runId,evaluation:receipt,budget:value.budget,policy:CREATOR_POLICY_VERSION});
+      return value;
     })();trackJob(root,job);try{return await job;}finally{controllers.delete(controller);}
   }
   async function benchmark(agent,root,seed,cap,externalSignal){
@@ -144,7 +180,7 @@ export async function installRuntime(ctx,config,{z,runCase,caseSets=[],NativeToo
     else if(action==='analyze')value=await launch(agent,{force:true,manual:true,externalSignal:signal});
     else if(action==='curate')value={changed:false,note:'Use a new evidence-backed delta; no automatic semantic merge/prune.'};
     else if(action==='benchmark')value=await benchmark(agent,root,id===undefined?42:Number(id),arg===undefined?96:Number(arg),signal);
-    else if(action==='verifiers')value=trustedCaseSets.map(s=>({id:s.id,holdoutCases:s.cases.filter(c=>c.split==='holdout').length,environment:'trusted registered cases only; built-in runner is memory-only declarative, not JS execution'}));
+    else if(action==='verifiers')value=trustedCaseSets.map(s=>({id:s.id,adaptationCases:s.cases.filter(c=>c.split==='adaptation').length,holdoutCases:s.cases.filter(c=>c.split==='holdout').length,appliesTo:s.appliesTo??null,automaticMatch:s.appliesTo?.root===root,environment:'trusted registered paired cases only under strict policy; memory-only declarative, not JS execution'}));
     else if(action==='storage-backups')value=store.backups(root);
     else if(action==='storage-restore'){if(!store.backups(root).some(s=>s.id===id&&s.kind==='project'&&s.format===1))throw Error('invalid-v1-backup');restoredRoots.add(root);for(const[c,owner]of controllers)if(owner.root===root)c.abort();await Promise.allSettled([...rootJobs.get(root)??[]]);value=await store.restore(root,id,{signal,guard:()=>!lifetime.signal.aborted&&rootOf(agent)===root});}
     else if(action==='verify'){

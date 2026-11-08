@@ -79,6 +79,7 @@ export function createCallBudget(limit) {
 function requireBudget(budget) {
   if (!budgets.has(budget)) throw new TypeError('Host call budget required');
 }
+export function assertHostCallBudget(budget){requireBudget(budget);}
 
 export function emptyUsage() {
   return { provider: { reportedCalls: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: null }, estimates: [] };

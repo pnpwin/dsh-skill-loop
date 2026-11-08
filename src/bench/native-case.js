@@ -55,9 +55,11 @@ function eventsOf(session){return session.snapshotEvents();}
  */
 export function createNativeCaseRunner(ctx,{NativeToolExecutor,createUserMessage,ownerAgent,provider,model,cwd:caseCwd,maxSteps=4,timeoutMs=45000,onCase,onDispatch=()=>{},preloadCandidate=false}={}){
   if(!ctx.agentLoop||typeof NativeToolExecutor!=='function'||typeof createUserMessage!=='function')throw Error('native-case-sdk-unavailable');
+  const frozenSelection=Object.freeze({...ownerAgent?.model?.current?.()});
   return async function runCase({candidate,case:testCase,scope,budget,signal:externalSignal,arm='ace',phase='holdout'}){
+    const started=Date.now();
     const signal=AbortSignal.any([AbortSignal.timeout(timeoutMs),...(externalSignal?[externalSignal]:[])]),env=createFixtureEnvironment(testCase),instructions=candidateInstructions(candidate,scope);
-    const id='ace-fixture-'+randomUUID(),selection=ownerAgent?.model?.current?.()??{},selectedProvider=provider||selection.provider,selectedModel=model||selection.model;
+    const id='ace-fixture-'+randomUUID(),selection=frozenSelection,selectedProvider=provider||selection.provider,selectedModel=model||selection.model;
     if(!selectedProvider||!selectedModel)throw Error('fixture-model-unavailable');
     const cwd=(typeof scope==='string'&&isAbsolute(scope)?scope:caseCwd)||ctx.workingDirectory.get(ownerAgent.session);signal.throwIfAborted();let handle,modelCalls=0,stepLimited=false,usageReports=[],loaded=false;
     let finalResult;
@@ -69,12 +71,12 @@ export function createNativeCaseRunner(ctx,{NativeToolExecutor,createUserMessage
           // Explicit empty allow-list is supported; only this scope's own tools remain.
           agentCtx.tools.restrict({allow:[]});
           agentCtx.on('llm/stream',async function*(options,next){
-            if(options.sessionId!==id){yield*next();return;}
+            if(options.sessionId&&options.sessionId!==id){yield*next();return;}
             if(modelCalls>=maxSteps){stepLimited=true;throw Error('fixture-step-limit');}
-            budget.reserve('generator');onDispatch({role:'generator',sessionId:id,budget:budget.snapshot()});modelCalls++;let usage=null;
+            budget.reserve('generator');await onDispatch({role:'generator',sessionId:id,budget:budget.snapshot()});modelCalls++;let usage=null;
             try{for await(const chunk of next()){
               signal.throwIfAborted();
-              if(chunk.type==='usage'&&Number.isSafeInteger(chunk.usage?.inputTokens)&&Number.isSafeInteger(chunk.usage?.outputTokens))usage={inputTokens:chunk.usage.inputTokens,outputTokens:chunk.usage.outputTokens,cacheReadTokens:chunk.usage.cacheReadTokens??null};
+              if(chunk.type==='usage'&&Number.isSafeInteger(chunk.usage?.inputTokens)&&Number.isSafeInteger(chunk.usage?.outputTokens))usage=Object.fromEntries(['inputTokens','outputTokens','totalTokens','cacheReadTokens','reasoningTokens'].map(k=>[k,Number.isSafeInteger(chunk.usage[k])&&chunk.usage[k]>=0?chunk.usage[k]:null]));
               yield chunk;
             }}finally{if(usage)usageReports.push(usage);}
           });
@@ -103,7 +105,7 @@ export function createNativeCaseRunner(ctx,{NativeToolExecutor,createUserMessage
         const events=eventsOf(agent.session),terminal=events.findLast(e=>e.type==='turn/end'),calls=new Map(events.filter(e=>e.type==='tool/call').map(e=>[e.data.callId,e.data.name]));
         const evidence=events.filter(e=>e.type==='tool/result'&&executorTools.includes(calls.get(e.data?.message?.toolCallId))).slice(-8).map(e=>{const message=e.data.message,body=textOf(message.content);return {seq:e.seq,type:e.type,text:redact(calls.get(message.toolCallId)+': '+body).slice(0,1000),verified:calls.get(message.toolCallId)==='ace_fixture_verify'&&message.isError!==true&&result.passed&&body.trim()===JSON.stringify(result.grade)};});
         const confirmationSeqs=result.passed?evidence.filter(e=>e.verified).map(e=>e.seq).slice(-1):[];
-        finalResult={passed:result.passed&&terminal?.data?.reason?.kind==='completed'&&confirmationSeqs.length>0&&modelCalls>0&&!stepLimited&&(!instructions||loaded)&&budget.snapshot().denied===0,feedback:{caseId:testCase.id,family:testCase.family,phase,arm,sessionId:id,scope:cwd,turn:terminal?.data?.turn??1,endSeq:terminal?.seq??0,terminalReason:terminal?.data?.reason?.kind??'unknown',outcome:result.grade,modelCalls,candidateLoaded:loaded,candidateDelivery:instructions?(preloadCandidate?'preloaded-native-registry':'case-tool-native-registry'):'none',environment:'memory-only declarative operations; no generated JS executed',evidence,confirmationSeqs},metrics:{modelCalls,loaded,stepLimited},...(usageReports.length?{usage:{provider:{reportedCalls:usageReports.length,inputTokens:usageReports.reduce((s,u)=>s+u.inputTokens,0),outputTokens:usageReports.reduce((s,u)=>s+u.outputTokens,0),cacheReadTokens:usageReports.every(u=>u.cacheReadTokens!==null)?usageReports.reduce((s,u)=>s+u.cacheReadTokens,0):null}}}:{})};
+        finalResult={passed:result.passed&&terminal?.data?.reason?.kind==='completed'&&confirmationSeqs.length>0&&modelCalls>0&&!stepLimited&&(!instructions||loaded)&&budget.snapshot().denied===0,feedback:{caseId:testCase.id,family:testCase.family,phase,arm,sessionId:id,scope:cwd,turn:terminal?.data?.turn??1,endSeq:terminal?.seq??0,terminalReason:terminal?.data?.reason?.kind??'unknown',outcome:result.grade,modelCalls,candidateLoaded:loaded,candidateDelivery:instructions?(preloadCandidate?'preloaded-native-registry':'case-tool-native-registry'):'none',environment:'memory-only declarative operations; no generated JS executed',evidence,confirmationSeqs},metrics:{modelCalls,loaded,stepLimited,elapsedMs:Date.now()-started,tokenUsage:Object.fromEntries(['inputTokens','outputTokens','totalTokens','cacheReadTokens','reasoningTokens'].map(k=>[k,usageReports.length===modelCalls&&modelCalls>0&&usageReports.every(u=>u[k]!==null)?usageReports.reduce((s,u)=>s+u[k],0):null]))},...(usageReports.length?{usage:{provider:{reportedCalls:usageReports.length,inputTokens:usageReports.reduce((s,u)=>s+u.inputTokens,0),outputTokens:usageReports.reduce((s,u)=>s+u.outputTokens,0),cacheReadTokens:usageReports.every(u=>u.cacheReadTokens!==null)?usageReports.reduce((s,u)=>s+u.cacheReadTokens,0):null}}}:{})};
       }finally{signal.removeEventListener('abort',cancel);}
       onCase?.(finalResult);return finalResult;
     }finally{await handle?.dispose();}

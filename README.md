@@ -1,10 +1,14 @@
 # Skill loop for DeepSeek Harness
 
+[GitHub release v0.2.4](<docs/release-v0.2.4.md>): code/build/CLI/bench scripts remain under `src/`; root files are documentation, manifests and DSH discovery metadata. Existing test/resource directories are not relocated. Companion package: [dsh-skill-creator](<https://github.com/pnpwin/dsh-skill-creator>).
+
 [Русская версия](<README.ru.md>) · [GitHub](<https://github.com/pnpwin/dsh-skill-loop>) · [MIT](<LICENSE>) · `@pnpwin/dsh-skill-loop`
+
+**v0.2.4:** Curator now follows a compact rubric derived from the ONE DSH skill creator; a separate native paired evaluator gates automatic publication, with at most one adaptation-only refinement. Existing mode/data/budgets are preserved. [Integration, trusted suites and limits](<docs/curator-evaluator-v0.2.1.md>). A matching owner-reviewed project suite is required; none is invented from model prose.
 
 **ACE-lite v0.2:** project-scoped procedural learning inside the existing DSH ReAct workflow. Visible work produces bounded reflection, atomic lessons and a small skill delta—not another agent loop, a memory server, model-weight training or a new UI.
 
-**Verification status:** offline unit/integration coverage plus a bounded native smoke used exactly **18 logical model calls**. The automatic path retained one lesson without proposing a skill; a separately labelled gold-insight Curator component generated a delta that passed two native heldout fixtures. Native KV migration/backup/budget/restore passed five isolated checks. See the [measured validation report](<docs/validation-v0.2.0.md>). This is integration evidence, **not** a quality-gain or end-to-end token-saving claim.
+**Historical v0.2.0 validation:** offline unit/integration coverage plus a bounded native smoke used exactly **18 logical model calls**. The automatic path retained one lesson without proposing a skill; a separately labelled gold-insight Curator component generated a delta that passed two native heldout fixtures. Native KV migration/backup/budget/restore passed five isolated checks. See the [measured validation report](<docs/validation-v0.2.0.md>). This is integration evidence, **not** a quality-gain or end-to-end token-saving claim.
 
 ## Installation and compatibility
 
@@ -19,7 +23,7 @@ For a reviewed local checkout, ask the agent to invoke Plugin Manager with its a
 The local directory may remain linked; keep it in place. For the tagged release, use Plugin Manager with:
 
 ```json
-{"action":"install_bundle","target":"github:pnpwin/dsh-skill-loop#v0.2.0","enabled":true}
+{"action":"install_bundle","target":"github:pnpwin/dsh-skill-loop#v0.2.4","enabled":true}
 ```
 
 Read the manager's application result and inspect the live `skill_loop` status after upgrading; saved package selection alone does not establish activation.
@@ -50,7 +54,9 @@ There are at most four operations per candidate, one project-owned target, and n
 
 Published `learned-*` skills are native, workspace-filtered provider entries, loaded with DSH's standard `skill` tool—not generated files overwriting a user's library. The loaded body includes active entries, a compact identity manifest and a pointer to history. Bulk provenance is available on demand through `show`/`read` rather than copied into every skill body. This controls context placement; it does **not** establish token savings.
 
-## Review, soft auto and evaluation
+## Review, paired default and legacy soft auto
+
+**Native v0.2.1 default:** requirePairedEvaluation=true. Every auto publication, including additive creates, needs an exact confirmed candidate plus independent adaptation AND holdout gains with no regression. Missing relevant trusted project cases → pending, not invented proof. The table below describes review and the explicitly opted-in legacy requirePairedEvaluation=false policy; it is NOT the new strict default.
 
 **New scopes default to `review`; an existing mode is preserved.** No approval-count threshold switches the mode automatically. Enabling auto does not publish the old queue retroactively.
 
@@ -119,12 +125,13 @@ Default limits are per canonical scope; daily counters use UTC:
 
 | Limit | Default |
 |---|---:|
-| Auxiliary model dispatches, **Reflector + Curator combined** | **12 total/day**, not 12 per role |
+| Auxiliary model dispatches, **Reflector + Curator + refinement + evaluator combined** | **12 total/day**, not 12 per role |
 | Review cycles (`dailyReviews`, separate ceiling) | 12/day |
 | Automatic cooldown | 60 seconds |
 | Sum of both roles' input JSON payload lengths | 16,000 characters |
-| Combined output-token cap | 3,000: Reflector 1,000 + Curator 2,000 |
-| Shared learning-cycle deadline | 45 seconds, not 45 seconds per role |
+| Initial two-role output-token cap (one refinement may reuse Curator allocation) | 3,000: Reflector 1,000 + Curator 2,000 |
+| Shared initial two-role deadline | 45 seconds, not 45 seconds per role |
+| Strict automatic cycle logical cap | 2 + verificationMaxCalls (default20), refinement included |
 | Explicit verification budget/deadline | 18 logical calls / 120 seconds per invocation |
 | Active/all skills; pending/all proposals | 50/100; 50/100 |
 | Lessons; run records; retained skill revisions | 200; 100; 10 per skill |

@@ -2,6 +2,7 @@ import { readFileSync, readdirSync, statSync, mkdirSync } from 'node:fs';
 import { resolve, dirname, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import {verifyRuntime} from './build-runtime.js';
 
 // Development/release validation only; never imported by the plugin Host.
 export function checkPackage(root = resolve(dirname(fileURLToPath(import.meta.url)), '..')) {
@@ -13,7 +14,8 @@ export function checkPackage(root = resolve(dirname(fileURLToPath(import.meta.ur
   for (const file of ['src/index.js', 'src/host-imports.js', 'src/runtime.js', 'src/core.js', 'src/projection.js', 'src/prompts.js', 'src/ace-core.js', 'src/feedback.js', 'src/review.js', 'src/store.js', 'src/optimizer.js', 'src/bench/runner.js', 'src/bench/native-case.js', 'src/icon.svg', 'locale/en.json', 'locale/ru.json', 'LICENSE', 'UPSTREAM.md']) {
     if (!statSync(resolve(root, file)).isFile()) throw new Error(`Missing release resource: ${file}`);
   }
-  if (pkg.exports?.['.'] !== './src/index.js' || pkg.exports?.['./icon'] !== './src/icon.svg') throw new Error('Entry/icon exports must resolve under src/');
+  verifyRuntime(root);
+  if (pkg.exports?.['.'] !== './src/runtime-v'+pkg.version+'/index.js' || pkg.exports?.['./icon'] !== './src/icon.svg') throw new Error('Entry/icon exports must resolve under src/');
   if (pkg.dsh?.bundle?.patch !== './cordis.patch.yml') throw new Error('Missing DSH bundle discovery');
   if (pkg.scripts?.prepare || pkg.scripts?.install || pkg.scripts?.postinstall || Object.keys(pkg.dependencies || {}).length) throw new Error('Release must not require dependency installation or build hooks');
   for (const language of ['en', 'ru']) {

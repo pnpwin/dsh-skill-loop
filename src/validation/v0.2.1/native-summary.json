@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 1,
+  "policy": "dsh-skill-creator/0.1.0+paired-v1",
+  "source": {
+    "name": "dsh-skill-creator",
+    "version": "0.1.0",
+    "bodySha256": "345c7aac80660256000dc41d41017c0440e772721365953b81f2d23941647af7"
+  },
+  "model": {
+    "provider": "openai-codex",
+    "model": "gpt-6.1-sol",
+    "reasoningEffort": "high"
+  },
+  "candidate": {
+    "name": "learned-stable-first-occurrence-uniqueness",
+    "candidateHash": "4bc465cbe44e2ee515f21a3c9c29214bda693c33c8df4cc1cf738a7b7a903714",
+    "confirmed": false,
+    "evaluationOnly": true
+  },
+  "stages": [
+    {
+      "role": "curator",
+      "inputChars": 909,
+      "payloadChars": 812,
+      "systemChars": 2840,
+      "outputChars": 1151,
+      "usage": {
+        "inputTokens": 759,
+        "outputTokens": 383,
+        "totalTokens": 1142
+      },
+      "usageStatus": "provider-reported",
+      "latencyMs": 12814
+    }
+  ],
+  "receiptSummary": {
+    "candidateHash": "4bc465cbe44e2ee515f21a3c9c29214bda693c33c8df4cc1cf738a7b7a903714",
+    "baselineHash": null,
+    "caseSetId": "native-stable-order-v021",
+    "caseSetHash": "a0985c2b985675772902ab00db5bc18136b4d42cf174937ebd225f6eb9c4ac59",
+    "protocol": "paired-skill-v1",
+    "passed": false,
+    "comparison": {
+      "adaptation": {
+        "baselineFailed": 0,
+        "candidateFailed": 0,
+        "complete": true,
+        "gains": 0,
+        "pairs": 1,
+        "regressions": 0
+      },
+      "complete": false,
+      "holdout": {
+        "baselineFailed": 0,
+        "candidateFailed": 0,
+        "complete": false,
+        "gains": 0,
+        "pairs": 0,
+        "regressions": 0
+      },
+      "verdict": "no-gain"
+    },
+    "usage": {
+      "cacheReadTokens": null,
+      "inputTokens": 7717,
+      "outputTokens": 158,
+      "reasoningTokens": null,
+      "totalTokens": 19651
+    }
+  },
+  "adaptationAttempts": [
+    {
+      "arm": "baseline",
+      "calls": 4,
+      "caseId": "stable-adapt",
+      "elapsedMs": 7558.586084008217,
+      "eligible": true,
+      "feedback": {
+        "candidateLoaded": false,
+        "outcome": {
+          "checks": 1,
+          "failed": 0,
+          "forbiddenAttempts": 0,
+          "passed": true,
+          "protectedUnchanged": true,
+          "version": 1
+        },
+        "task": "Remove duplicate values while preserving first occurrence order and keeping protected metadata unchanged. Select a predefined operation; do not execute JavaScript.",
+        "terminalReason": "completed"
+      },
+      "passed": true,
+      "usage": {
+        "cacheReadTokens": null,
+        "inputTokens": 3342,
+        "outputTokens": 70,
+        "reasoningTokens": null,
+        "totalTokens": 8916
+      }
+    },
+    {
+      "arm": "candidate",
+      "calls": 4,
+      "caseId": "stable-adapt",
+      "elapsedMs": 12528.498750001192,
+      "eligible": true,
+      "feedback": {
+        "candidateLoaded": true,
+        "outcome": {
+          "checks": 1,
+          "failed": 0,
+          "forbiddenAttempts": 0,
+          "passed": true,
+          "protectedUnchanged": true,
+          "version": 1
+        },
+        "task": "Remove duplicate values while preserving first occurrence order and keeping protected metadata unchanged. Select a predefined operation; do not execute JavaScript.",
+        "terminalReason": "completed"
+      },
+      "passed": true,
+      "usage": {
+        "cacheReadTokens": null,
+        "inputTokens": 4375,
+        "outputTokens": 88,
+        "reasoningTokens": null,
+        "totalTokens": 10735
+      }
+    }
+  ],
+  "logicalBudget": {
+    "limit": 18,
+    "used": 9,
+    "remaining": 9,
+    "denied": 0,
+    "byRole": {
+      "generator": 8,
+      "reflector": 0,
+      "curator": 1,
+      "evaluator": 0
+    }
+  },
+  "persistentLedger": {
+    "limit": 18,
+    "used": 9
+  },
+  "mainLibraryWrites": false,
+  "publication": false,
+  "rubricChars": 979,
+  "rubricUtf8Bytes": 979,
+  "limitations": [
+    "Controlled unconfirmed hypothesis and finite native workflow fixture, not production automatic source evidence.",
+    "No observed quality gain; no refinement or holdout was warranted.",
+    "Positive publication and refinement branches exercised by offline mocks only.",
+    "Missing cache/reasoning counters unknown; no token-savings claim.",
+    "Copied receipt summary is evidence data, not publication authority."
+  ]
+}

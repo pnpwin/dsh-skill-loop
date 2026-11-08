@@ -110,7 +110,7 @@ export async function openProjectStore(ctx,{z,now=()=>new Date().toISOString(),i
         if(c.recent.includes(runId))return 'already-reviewed';
         if(c.attempts>=dailyReviews)return 'daily-budget';
         if(!manual&&Date.parse(at)<c.cooldownUntil)return 'cooldown';
-      }else if(stage!=='curator')throw Error('invalid-review-stage');
+      }else if(!['curator','evaluator'].includes(stage))throw Error('invalid-review-stage');
       if(c.auxCalls>=maxAuxCallsPerDay)return 'auxiliary-budget';
       await backupBeforeControlWrite(root,raw);
       check({signal,guard});

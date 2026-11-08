@@ -1,10 +1,14 @@
 # Skill loop для DeepSeek Harness
 
+[GitHub release v0.2.4](<docs/release-v0.2.4.md>): код/build/CLI/bench scripts — в `src/`; корневые файлы — документация, manifests и DSH discovery metadata. Каталоги тестов и ресурсов не переносились. Сопутствующий пакет: [dsh-skill-creator](<https://github.com/pnpwin/dsh-skill-creator>).
+
 [English](<README.md>) · [GitHub](<https://github.com/pnpwin/dsh-skill-loop>) · [MIT](<LICENSE>) · `@pnpwin/dsh-skill-loop`
+
+**v0.2.4:** Curator получает компактные правила из ЕДИНОГО DSH skill creator; отдельный native paired evaluator проверяет автоматическую публикацию. Не более одного уточнения по adaptation, без обучения на holdout. Режим, данные и бюджеты сохраняются. [Интеграция, trusted suites и пределы](<docs/curator-evaluator-v0.2.1.md>). Для сравнения нужен подходящий проверенный владельцем набор задач; модельный spec сам не становится полномочием.
 
 **ACE-lite v0.2:** проектное накопление процедурных навыков внутри существующего ReAct-процесса DSH. Видимая работа → ограниченная рефлексия → атомарные уроки → небольшая правка навыка. Это не новый agent loop, сервер памяти, обучение весов или новая UI-панель.
 
-**Статус проверки:** офлайн unit/integration suite и native smoke с общим лимитом **18 логических вызовов**. Автоматический путь сохранил один урок без skill; отдельный Curator component с явно заданным gold insight создал дельту, прошедшую два native holdout-сценария. Native KV migration/backup/budget/restore прошли пять изолированных проверок. См. [отчёт с измерениями](<docs/validation-v0.2.0.md>). Это проверка интеграции, **не** доказательство роста качества или end-to-end экономии токенов.
+**Историческая проверка v0.2.0:** офлайн unit/integration suite и native smoke с общим лимитом **18 логических вызовов**. Автоматический путь сохранил один урок без skill; отдельный Curator component с явно заданным gold insight создал дельту, прошедшую два native holdout-сценария. Native KV migration/backup/budget/restore прошли пять изолированных проверок. См. [отчёт с измерениями](<docs/validation-v0.2.0.md>). Это проверка интеграции, **не** доказательство роста качества или end-to-end экономии токенов.
 
 ## Установка и совместимость
 
@@ -19,7 +23,7 @@
 Менеджер может оставить ссылку на этот каталог — не удаляйте и не переносите его. Установка tagged release через Plugin Manager:
 
 ```json
-{"action":"install_bundle","target":"github:pnpwin/dsh-skill-loop#v0.2.0","enabled":true}
+{"action":"install_bundle","target":"github:pnpwin/dsh-skill-loop#v0.2.4","enabled":true}
 ```
 
 После обновления проверьте application result менеджера и живой статус `skill_loop`: сохранённый package selection сам по себе не подтверждает активацию.
@@ -50,7 +54,9 @@
 
 Опубликованные `learned-*` — нативные provider-backed skills с фильтрацией по workspace, загружаемые обычным инструментом `skill`, а не файлы, перезаписывающие пользовательскую библиотеку. Загружаемый текст содержит активные элементы, компактный identity manifest и указатель на историю. Полный provenance читается по запросу через `show`/`read`, а не копируется в каждое тело навыка. Это управление размещением контекста, **не измеренная экономия токенов**.
 
-## Review, soft auto и evaluation
+## Review, paired default и legacy soft auto
+
+**Native default v0.2.1:** requirePairedEvaluation=true. Любая auto-публикация, включая добавления, требует подтверждённого exact candidate и независимого выигрыша на adaptation И holdout без регрессий. Нет подходящих trusted project cases → pending, не выдуманные проверки. Таблица ниже описывает review и явно выбранную legacy-политику requirePairedEvaluation=false; это НЕ новый strict default.
 
 **Для нового scope default — `review`; существующий режим сохраняется.** Количество одобрений не переключает режим автоматически. Включение auto не публикует задним числом старую очередь.
 
@@ -119,12 +125,13 @@ Defaults действуют на канонический scope; суточны�
 
 | Ограничение | Default |
 |---|---:|
-| Вспомогательные model dispatches, **Reflector + Curator вместе** | **12 всего в сутки**, не по 12 на роль |
+| Вспомогательные model dispatches, **Reflector + Curator + уточнение + evaluator вместе** | **12 всего в сутки**, не по 12 на роль |
 | Review cycles (`dailyReviews`, отдельный потолок) | 12/сутки |
 | Automatic cooldown | 60 секунд |
 | Сумма длин input JSON двух ролей | 16 000 символов |
-| Общий output-token cap | 3 000: Reflector 1 000 + Curator 2 000 |
-| Общий deadline learning cycle | 45 секунд, не по 45 на роль |
+| Initial output-token cap двух ролей (одно уточнение может повторить Curator allocation) | 3 000: Reflector 1 000 + Curator 2 000 |
+| Общий deadline начальных двух ролей | 45 секунд, не по 45 на роль |
+| Hard logical cap strict auto cycle | 2 + verificationMaxCalls (default20), включая уточнение |
 | Явная verification: бюджет/deadline | 18 logical calls / 120 секунд на запуск |
 | Active/all skills; pending/all proposals | 50/100; 50/100 |
 | Уроки; записи запусков; ревизии на навык | 200; 100; 10 |

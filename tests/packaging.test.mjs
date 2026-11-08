@@ -10,7 +10,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
 
 test('root contains metadata only, all implementation modules live in src', () => {
-  assert.equal(checkPackage(root).entry, './src/index.js');
+  assert.equal(checkPackage(root).entry, './src/runtime-v'+pkg.version+'/index.js');
   assert.equal(readdirSync(root).filter(name => /\.(?:[cm]?js|ts|tsx|jsx|py|sh)$/.test(name)).length, 0);
   for (const directory of ['src', 'tests', 'locale']) assert.ok(readdirSync(root, { withFileTypes: true }).some(e => e.name === directory && e.isDirectory()));
 });

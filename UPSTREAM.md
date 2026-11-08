@@ -41,6 +41,10 @@ This project borrows ideas and independently implements JavaScript/native DSH in
 - [ECC Continuous Learning v2, pinned source](<https://github.com/affaan-m/ECC/blob/d2ef2680594f9a17526a6e1a2e18b3d242c5d17b/skills/continuous-learning-v2/SKILL.md#how-it-works>): observations, atomic lessons and project-scoped proposals.
 - [GEPA paper v2](<https://arxiv.org/html/2507.19457v2>): a reference for independently evaluated candidate optimization, **not an implemented feature**. This bundle provides proposer/evaluator contracts but no GEPA dependency, mode, search, Pareto selection or recombination algorithm.
 
+## Authoring license notice
+
+Authoring methodology references Apache-2.0 and MIT materials; complete copyright/license notices are retained in the authoring bundle's license metadata. This plugin's independently implemented code remains [MIT](<LICENSE>). Runtime instructions contain only the working rubric; source identity is recorded in [policy metadata](<src/creator-policy.js>).
+
 ## Measurement and evaluation boundaries
 
 - Paper results are upstream experimental claims, not measurements of this DSH plugin. Adaptation-compute savings do not imply smaller inference context or lower end-to-end cost.
