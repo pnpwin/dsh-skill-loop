@@ -8,7 +8,8 @@
         maxOutputTokens: 3000
         timeoutMs: 45000
         cooldownMs: 60000
-        dailyReviews: 16
+        dailyReviews: 50
+        maxAuxCallsPerDay: 50
         learnLite: true
         learnStandard: true
         learnHeavy: false
