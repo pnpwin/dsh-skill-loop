@@ -116,12 +116,12 @@ test('provider shadowing with same name but different body is unknown', () => {
 
 test('explicit wrong provider fails closed even if body is identical', () => {
   const [record] = selected([call(0), result(1, wrap(body, 'learned-reducer', ' provider="foreign"'))], {
-    knownSkills: [{ ...known[0], provider: 'local-skill-loop' }],
+    knownSkills: [{ ...known[0], provider: 'dsh-skillgrowth' }],
   });
   assert.equal(record.provider, 'foreign');
   assert.equal(record.match, 'unknown');
-  assert.equal(selected([call(0), result(1, wrap(body, 'learned-reducer', ' provider="local-skill-loop"'))], {
-    knownSkills: [{ ...known[0], provider: 'local-skill-loop' }],
+  assert.equal(selected([call(0), result(1, wrap(body, 'learned-reducer', ' provider="dsh-skillgrowth"'))], {
+    knownSkills: [{ ...known[0], provider: 'dsh-skillgrowth' }],
   })[0].match, 'matched');
 });
 

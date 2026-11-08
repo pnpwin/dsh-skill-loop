@@ -6,7 +6,7 @@ const Schema = schemaModule.default;
 const { z } = await hostImport('zod');
 const {createUserMessage} = await hostImport('@deepseek-ai/dsh-llm');
 const {NativeToolExecutor} = await hostImport('@deepseek-ai/dsh-tool-executor-native');
-export const name = 'local-skill-loop';
+export const name = 'dsh-skillgrowth';
 export const inject = ['skills', 'tools', 'commands', 'llm', 'agents', 'agentLoop', 'workingDirectory', 'sessionProjections', 'storageDomain', 'systemPrompt'];
 export const Config = Schema.object({
   enabled: Schema.boolean().default(true).volatile(),

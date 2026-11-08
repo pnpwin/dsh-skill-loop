@@ -4,7 +4,7 @@
 
 ## Implemented / offline checked
 
-- Compact fixed [Curator rubric](../src/creator-policy.js), provenance/body hash pinned.979characters/979UTF-8bytes vs7735characters/7739bytes of the full source skill body. This is a structural context comparison, **not provider-token savings**. Native Curator system measured2840characters.
+- Compact fixed [Curator rubric](../src/craft-policy.js), provenance/body hash pinned.979characters/979UTF-8bytes vs7735characters/7739bytes of the full source skill body. This is a structural context comparison, **not provider-token savings**. Native Curator system measured2840characters.
 - [Separate Host paired evaluator](../src/paired-evaluator.js): no-skill/current-active baseline, frozen body/base/suite/scope/model, identical task/tool/step conditions, adaptation first, untouched holdout only after gain.
 - At most one no-tools refinement receives adaptation task/outcome feedback only, with fresh candidate hash and repeated pairs. Failed training remains in bounded telemetry. No expected oracle/holdout feedback enters Curator.
 - Strict default applies to every auto publication, including additive creates. Staging is deferred until a fresh registry-owned evaluation; old persisted passes cannot publish before current suite checks. Identity receipts bind exact hashes; copies, altered baselines/scopes/cases and substituted budgets lose authority.

@@ -1,4 +1,4 @@
-# Skill loop MVP implementation contract
+# Skillgrowth MVP implementation contract
 
 Lead owns runtime/config/prompts/projection/provider/commands. Core teammate owns `src/core.js` + `tests/core.test.mjs` only. Storage is native DSH storageDomain, one immutable project record per canonical cwd. No filesystem skill overwrites, generated skills use a workspace-filtered SkillProvider.
 

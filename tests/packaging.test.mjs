@@ -16,12 +16,12 @@ test('root contains metadata only, all implementation modules live in src', () =
 });
 
 test('public GitHub package keeps native runtime identities for migration', () => {
-  assert.equal(pkg.name, '@pnpwin/dsh-skill-loop');
-  assert.equal(pkg.repository.url, 'git+https://github.com/pnpwin/dsh-skill-loop.git');
+  assert.equal(pkg.name, '@pnpwin/dsh-skillgrowth');
+  assert.equal(pkg.repository.url, 'git+https://github.com/pnpwin/dsh-skillgrowth.git');
   assert.equal(pkg.exports['./icon'], './src/icon.svg');
   const patch = readFileSync(resolve(root, 'cordis.patch.yml'), 'utf8');
-  assert.match(patch, /id: local-skill-loop/);
-  assert.match(patch, /name: '@pnpwin\/dsh-skill-loop'/);
+  assert.match(patch, /id: dsh-skillgrowth/);
+  assert.match(patch, /name: '@pnpwin\/dsh-skillgrowth'/);
   assert.match(readFileSync(resolve(root, 'src/store.js'), 'utf8'), /name:\s*'local_skill_loop',\s*version:\s*1/);
   assert.match(readFileSync(resolve(root, 'src/store.js'), 'utf8'), /name:\s*'local_skill_loop_backups',\s*version:\s*1/);
 });

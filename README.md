@@ -1,10 +1,10 @@
-# Skill loop for DeepSeek Harness
+# Skillgrowth for DeepSeek Harness
 
-[GitHub release v0.2.4](<docs/release-v0.2.4.md>): code/build/CLI/bench scripts remain under `src/`; root files are documentation, manifests and DSH discovery metadata. Existing test/resource directories are not relocated. Companion package: [dsh-skill-creator](<https://github.com/pnpwin/dsh-skill-creator>).
+[GitHub release v0.2.5](<docs/release-v0.2.5.md>): code/build/CLI/bench scripts remain under `src/`; root files are documentation, manifests and DSH discovery metadata. Existing test/resource directories are not relocated. Companion package: [dsh-skillcraft](<https://github.com/pnpwin/dsh-skillcraft>).
 
-[Русская версия](<README.ru.md>) · [GitHub](<https://github.com/pnpwin/dsh-skill-loop>) · [MIT](<LICENSE>) · `@pnpwin/dsh-skill-loop`
+[Русская версия](<README.ru.md>) · [GitHub](<https://github.com/pnpwin/dsh-skillgrowth>) · [MIT](<LICENSE>) · `@pnpwin/dsh-skillgrowth`
 
-**v0.2.4:** Curator now follows a compact rubric derived from the ONE DSH skill creator; a separate native paired evaluator gates automatic publication, with at most one adaptation-only refinement. Existing mode/data/budgets are preserved. [Integration, trusted suites and limits](<docs/curator-evaluator-v0.2.1.md>). A matching owner-reviewed project suite is required; none is invented from model prose.
+**v0.2.5:** Curator now follows a compact rubric derived from the ONE DSH skill creator; a separate native paired evaluator gates automatic publication, with at most one adaptation-only refinement. Existing mode/data/budgets are preserved. [Integration, trusted suites and limits](<docs/curator-evaluator-v0.2.1.md>). A matching owner-reviewed project suite is required; none is invented from model prose.
 
 **ACE-lite v0.2:** project-scoped procedural learning inside the existing DSH ReAct workflow. Visible work produces bounded reflection, atomic lessons and a small skill delta—not another agent loop, a memory server, model-weight training or a new UI.
 
@@ -17,18 +17,18 @@ Use DSH's Plugin Manager to install the bundle; do not edit profile manifests ma
 For a reviewed local checkout, ask the agent to invoke Plugin Manager with its actual absolute directory:
 
 ```json
-{"action":"install_bundle","target":"/absolute/path/to/dsh-skill-loop","enabled":true}
+{"action":"install_bundle","target":"/absolute/path/to/dsh-skillgrowth","enabled":true}
 ```
 
 The local directory may remain linked; keep it in place. For the tagged release, use Plugin Manager with:
 
 ```json
-{"action":"install_bundle","target":"github:pnpwin/dsh-skill-loop#v0.2.4","enabled":true}
+{"action":"install_bundle","target":"github:pnpwin/dsh-skillgrowth#v0.2.5","enabled":true}
 ```
 
-Read the manager's application result and inspect the live `skill_loop` status after upgrading; saved package selection alone does not establish activation.
+Read the manager's application result and inspect the live `dsh_skillgrowth` status after upgrading; saved package selection alone does not establish activation.
 
-Disable an earlier duplicate local bundle before enabling its replacement. The `local-skill-loop` row/provider, `skill_loop` tool and main native storage domain `local_skill_loop` retain their identities. **The V2 application record format changes; downgrading the binary alone is not safe.** See [Storage and downgrade](<#storage-and-downgrade>).
+Remove the previous active bundle before enabling its replacement. Public row/provider/tool/command names change to Skillgrowth; capture and restore its existing public config through native ConfigEditor as described in the [migration notes](<docs/release-v0.2.5.md>). Private storage domains `local_skill_loop`/`local_skill_loop_backups` are intentionally unchanged, preserving library, pending IDs/hashes, mode and counters. **V2 binary downgrade precautions still apply.** See [Storage and downgrade](<#storage-and-downgrade>).
 
 ## How ACE-lite works
 
@@ -81,7 +81,7 @@ Exposure tracking matches durable native skill-load events against exact retaine
 
 ### Evaluator boundary—not a generic certification service
 
-The host evaluator accepts only explicitly registered **trusted case-set IDs**. The registry is empty by default. An owner can set `declarativeCaseSetsJson` to a JSON array of relevant case sets for the built-in memory-only runner, or a trusted Host integration can inject a runner. The [native fixture definitions](<src/bench/native-cases.js>) show the finite operation format; generated JavaScript is never executed. No unrelated generic case set automatically certifies arbitrary skills. Use `/skill-loop verifiers` to inspect registered IDs.
+The host evaluator accepts only explicitly registered **trusted case-set IDs**. The registry is empty by default. An owner can set `declarativeCaseSetsJson` to a JSON array of relevant case sets for the built-in memory-only runner, or a trusted Host integration can inject a runner. The [native fixture definitions](<src/bench/native-cases.js>) show the finite operation format; generated JavaScript is never executed. No unrelated generic case set automatically certifies arbitrary skills. Use `/dsh-skillgrowth verifiers` to inspect registered IDs.
 
 Receipts bind the candidate hash, case-set hash, scope and run. Runtime checks registry ownership before attaching them; model-written JSON or copied receipt objects are not authority. A pass establishes only the checks actually performed. The plugin neither invents model-supplied shell tests nor executes arbitrary generated JavaScript to obtain a receipt.
 
@@ -93,23 +93,23 @@ These are native human slash commands, not requests for the LLM to execute shell
 
 | Command | Purpose |
 |---|---|
-| `/skill-loop status` | Mode, counts, queue and separate review/auxiliary-call budgets |
-| `/skill-loop pending` | Pending proposals with evidence/evaluation status |
-| `/skill-loop show ID_OR_NAME` | Content, delta, hashes, history and provenance |
-| `/skill-loop confirm ID` | Attest that the underlying outcome was checked; no publication |
-| `/skill-loop approve ID`, `/skill-loop reject ID` | Explicit publication/rejection |
-| `/skill-loop mode review`, `/skill-loop mode auto` | Set this scope's policy explicitly |
-| `/skill-loop analyze` | Analyze a new completed window; no confirmation or budget bypass |
-| `/skill-loop curate` | Advisory/no-op boundary; no automatic semantic merge or pruning |
-| `/skill-loop pin NAME ENTRY_ID`, `/skill-loop unpin NAME ENTRY_ID` | Protect/unprotect an entry; creates a revision and invalidates stale candidates |
-| `/skill-loop verify ID CASESET` | Evaluate against an explicitly registered host case set; unavailable without a runner/case set |
-| `/skill-loop archive NAME`, `/skill-loop restore NAME` | Hide/restore a skill without deleting history |
-| `/skill-loop rollback NAME N` | Create a new revision from a retained revision |
-| `/skill-loop storage-backups` | List this scope's migration snapshots |
-| `/skill-loop storage-restore BACKUP_ID` | Explicitly restore a valid V1 project snapshot; see downgrade procedure |
-| `/skill-loop pause`, `/skill-loop resume` | Pause/resume learning in this scope |
+| `/dsh-skillgrowth status` | Mode, counts, queue and separate review/auxiliary-call budgets |
+| `/dsh-skillgrowth pending` | Pending proposals with evidence/evaluation status |
+| `/dsh-skillgrowth show ID_OR_NAME` | Content, delta, hashes, history and provenance |
+| `/dsh-skillgrowth confirm ID` | Attest that the underlying outcome was checked; no publication |
+| `/dsh-skillgrowth approve ID`, `/dsh-skillgrowth reject ID` | Explicit publication/rejection |
+| `/dsh-skillgrowth mode review`, `/dsh-skillgrowth mode auto` | Set this scope's policy explicitly |
+| `/dsh-skillgrowth analyze` | Analyze a new completed window; no confirmation or budget bypass |
+| `/dsh-skillgrowth curate` | Advisory/no-op boundary; no automatic semantic merge or pruning |
+| `/dsh-skillgrowth pin NAME ENTRY_ID`, `/dsh-skillgrowth unpin NAME ENTRY_ID` | Protect/unprotect an entry; creates a revision and invalidates stale candidates |
+| `/dsh-skillgrowth verify ID CASESET` | Evaluate against an explicitly registered host case set; unavailable without a runner/case set |
+| `/dsh-skillgrowth archive NAME`, `/dsh-skillgrowth restore NAME` | Hide/restore a skill without deleting history |
+| `/dsh-skillgrowth rollback NAME N` | Create a new revision from a retained revision |
+| `/dsh-skillgrowth storage-backups` | List this scope's migration snapshots |
+| `/dsh-skillgrowth storage-restore BACKUP_ID` | Explicitly restore a valid V1 project snapshot; see downgrade procedure |
+| `/dsh-skillgrowth pause`, `/dsh-skillgrowth resume` | Pause/resume learning in this scope |
 
-The agent's `skill_loop` tool remains limited to **`status`, `read`, `reflect`**. `reflect` queues a short intervention for turn-end analysis; it grants no confirmation. Agents cannot confirm, approve, set mode, pin, verify or restore storage through this tool. This is an API authority boundary, not a sandbox against arbitrary code already running with machine access.
+The agent's `dsh_skillgrowth` tool remains limited to **`status`, `read`, `reflect`**. `reflect` queues a short intervention for turn-end analysis; it grants no confirmation. Agents cannot confirm, approve, set mode, pin, verify or restore storage through this tool. This is an API authority boundary, not a sandbox against arbitrary code already running with machine access.
 
 ## Scope and privacy
 
@@ -149,8 +149,8 @@ Writes are serialized per root in this process. A canonical project is committed
 
 For an intentional downgrade:
 
-1. Pause work; inspect `/skill-loop storage-backups` and choose a valid V1 **project** snapshot for this scope.
-2. Run `/skill-loop storage-restore BACKUP_ID`. The current V2 state is archived before restoring V1; quota is not reset.
+1. Pause work; inspect `/dsh-skillgrowth storage-backups` and choose a valid V1 **project** snapshot for this scope.
+2. Run `/dsh-skillgrowth storage-restore BACKUP_ID`. The current V2 state is archived before restoring V1; quota is not reset.
 3. Stop/disable v0.2 before installing the older binary. Learning stays held for the restored scope in this runtime; starting v0.2 again can migrate it back to V2.
 
 An old binary cannot read V2 merely because the domain's backend version is unchanged. Snapshot restore is explicit, not automatic lossless bidirectional migration. Entry rollback does not undo actions an agent already performed in the project.
@@ -173,7 +173,7 @@ The [comparison runner](<src/bench/runner.js>) accepts an injected bounded nativ
 
 The generic callback boundary can support other explicitly trusted case executors. The built-in native adapter is narrower: a **controlled declarative ReAct environment** in which the model chooses JSON operations over fixed known primitives, not generated JavaScript or a VM execution path. It is a workflow-fixture smoke, not a JavaScript code-generation benchmark.
 
-The [concrete adapters](<src/bench/adapters.js>) use the actual preserved v0.1.3 single-role updater and the two-role ACE-lite proposer, with identical lexical active-skill selection. `/skill-loop benchmark [seed=42] [logical-call-cap=96]` runs an explicitly paid, isolated three-arm comparison (at most five minutes; cap1–200). It does not update production skills or their daily budget. The public `./optimizer` and `./bench` exports expose the extension/test contracts without introducing GEPA.
+The [concrete adapters](<src/bench/adapters.js>) use the actual preserved v0.1.3 single-role updater and the two-role ACE-lite proposer, with identical lexical active-skill selection. `/dsh-skillgrowth benchmark [seed=42] [logical-call-cap=96]` runs an explicitly paid, isolated three-arm comparison (at most five minutes; cap1–200). It does not update production skills or their daily budget. The public `./optimizer` and `./bench` exports expose the extension/test contracts without introducing GEPA.
 
 The [native validation report](<docs/validation-v0.2.0.md>) distinguishes automatic lesson-only behavior from the manually labelled Curator component and exact-candidate execution. It reports provider usage separately from a paired synthetic body-size comparison. No paired first-turn provider-token saving or broad skill-quality benefit is claimed.
 

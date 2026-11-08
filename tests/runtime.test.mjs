@@ -17,7 +17,7 @@ function proposalFor(options,{assistantOnly=false}={}){
   const data=JSON.parse(options.messages[0].content[0].text);
   const observations=data.observations??data.workEvidence;
   const refs=assistantOnly?[observations.find(e=>e.type==='assistant/message').seq]:data.trustedEnvelope.confirmationSeqs.length?data.trustedEnvelope.confirmationSeqs:[observations.at(-1).seq];
-  if(options.purpose==='skill-loop-reflector')return {lessons:[{kind:'correction',trigger:'При диагностике тестов',lesson:'Проверять исправление повторным запуском теста.',evidenceSeqs:refs}],insights:[{targetName:null,trigger:'Исправление ошибки',lesson:'Сохранять воспроизведение и повторную проверку.',evidenceSeqs:refs}],judgments:[]};
+  if(options.purpose==='dsh-skillgrowth-reflector')return {lessons:[{kind:'correction',trigger:'При диагностике тестов',lesson:'Проверять исправление повторным запуском теста.',evidenceSeqs:refs}],insights:[{targetName:null,trigger:'Исправление ошибки',lesson:'Сохранять воспроизведение и повторную проверку.',evidenceSeqs:refs}],judgments:[]};
   return {proposal:{name:'learned-check-regressions',baseRevision:0,baseHash:null,reason:'Сохраняет проверенную последовательность.',evidenceSeqs:refs,operations:[{op:'create',description:'Проверять исправления регрессионными тестами',trigger:'После исправления воспроизводимой ошибки',entries:[{section:'step',text:'Воспроизвести ошибку.'},{section:'step',text:'Проверить исправление тем же тестом.'},{section:'pitfall',text:'Не считать отсутствие исключения доказательством успеха.'},{section:'check',text:'Убедиться, что нужный тест был выполнен.'}]}]}};
 }
 async function fixture(options={}){
@@ -51,7 +51,7 @@ async function fixture(options={}){
     emit('tool/result',{turn,step:1,meta:{exitCode:success?0:1},message:{toolCallId:'call-'+turn,isError:false,content:[{type:'text',text:success?'# tests 2\n# pass 2\n# fail 0':'# tests 2\n# fail 1'}]}});
     emit('turn/end',{turn,reason:{kind:'completed'}},notify);
   }
-  async function command(rawInput,signal=new AbortController().signal){return definitions.commands.get('skill-loop').handler({agent,rawInput,commandId:'command-1',signal});}
+  async function command(rawInput,signal=new AbortController().signal){return definitions.commands.get('dsh-skillgrowth').handler({agent,rawInput,commandId:'command-1',signal});}
   return {rt,ctx,agent,session,work,emit,definitions,data,states,command,warnings,get calls(){return calls;},get closed(){return closed;},async close(){for(const d of effects.reverse())await d();}};
 }
 
@@ -72,8 +72,8 @@ test('auto publishes only proposals citing actual final verification',async()=>{
 test('unconfirmed correction needs separate human confirm then approve; tool cannot do either',async()=>{
   const f=await fixture();f.work({success:false});await f.rt.launch(f.agent,{manual:true});const p=f.data.projects.get(key(root)).proposals[0];
   assert.equal(p.confirmed,false);assert.equal((await f.command('approve '+p.id)).kind,'error');
-  await assert.rejects(f.definitions.tools.get('skill_loop').execute({action:'approve',id:p.id},{agent:f.agent}),/Unknown action/);
-  await assert.rejects(f.definitions.tools.get('skill_loop').execute({action:'confirm',id:p.id},{agent:f.agent}),/Unknown action/);
+  await assert.rejects(f.definitions.tools.get('dsh_skillgrowth').execute({action:'approve',id:p.id},{agent:f.agent}),/Unknown action/);
+  await assert.rejects(f.definitions.tools.get('dsh_skillgrowth').execute({action:'confirm',id:p.id},{agent:f.agent}),/Unknown action/);
   assert.equal((await f.command('confirm '+p.id)).kind,'success');assert.equal(f.data.projects.get(key(root)).skills.length,0);
   assert.equal((await f.command('approve '+p.id)).kind,'success');assert.equal(f.data.projects.get(key(root)).skills[0].provenance.humanConfirmation.commandId,'command-1');
   assert.equal((await f.command('mode auto')).kind,'success');await f.close();
@@ -146,7 +146,7 @@ test('native confirmation needs both the exit record and the matched result refe
   }});nativeWork(f);assert.equal((await f.rt.launch(f.agent,{manual:true})).status,'held-unconfirmed');assert.equal(f.data.projects.get(key(root)).skills.length,0);await f.close();
 });
 test('curator null target cannot mutate an existing unseen active snapshot',async()=>{
-  let f;f=await fixture({config:{initialMode:'auto'},stream:async function*(o){const draft=proposalFor(o);if(o.purpose==='skill-loop-curator'){
+  let f;f=await fixture({config:{initialMode:'auto'},stream:async function*(o){const draft=proposalFor(o);if(o.purpose==='dsh-skillgrowth-curator'){
     const current=f.data.projects.get(key(root))?.skills[0];if(current)draft.proposal={name:current.name,baseRevision:current.revision,baseHash:ace.snapshotHash(current),reason:'Изменить существующий шаг.',evidenceSeqs:JSON.parse(o.messages[0].content[0].text).trustedEnvelope.confirmationSeqs,operations:[{op:'insert',section:'step',text:'Новый этап проверки.',afterId:null}]};
   }yield {type:'text-delta',text:JSON.stringify(draft)};yield {type:'finish',reason:{kind:'stop'}};}});
   f.work();assert.equal((await f.rt.launch(f.agent,{manual:true})).status,'published');f.work({turn:2});const result=await f.rt.launch(f.agent,{manual:true});assert.equal(result.code,'unseen-update-target');assert.equal(f.data.projects.get(key(root)).skills[0].revision,1);await f.close();
@@ -170,7 +170,7 @@ test('partial V1 restore freezes all further writes even when control commit fai
 });
 const pairedSuite=(scope=root)=>({id:'project-pairs',appliesTo:{root:scope,names:['learned-check-regressions']},cases:[{id:'adapt',family:'bounded',split:'adaptation',input:{task:'Apply a bounded task.'},expected:{check:true}},{id:'holdout',family:'bounded',split:'holdout',input:{task:'UNTOUCHED-HOLDOUT-MARKER'},expected:{privateOracle:'HOLDOUT-SECRET'}}]});
 const pairedResult=(passed,loaded=true)=>({passed,feedback:{terminalReason:'completed',outcome:{passed,failed:passed?0:1}},metrics:{modelCalls:1,loaded,stepLimited:false},usage:{provider:{reportedCalls:1,inputTokens:10,outputTokens:5,cacheReadTokens:null}}});
-test('omitted runtime policy selects strict paired evaluation rather than legacy soft auto',async()=>{const f=await fixture({config:{initialMode:'auto',requirePairedEvaluation:undefined}});f.work();assert.equal((await f.rt.launch(f.agent,{manual:true})).status,'held-no-trusted-cases');assert.equal(f.rt.status(root).creator.requirePairedEvaluation,true);assert.equal(f.data.projects.get(key(root)).skills.length,0);await f.close();});
+test('omitted runtime policy selects strict paired evaluation rather than legacy soft auto',async()=>{const f=await fixture({config:{initialMode:'auto',requirePairedEvaluation:undefined}});f.work();assert.equal((await f.rt.launch(f.agent,{manual:true})).status,'held-no-trusted-cases');assert.equal(f.rt.status(root).craft.requirePairedEvaluation,true);assert.equal(f.data.projects.get(key(root)).skills.length,0);await f.close();});
 test('strict automatic learning holds without matching trusted project cases',async()=>{
   let dispatched=0;const f=await fixture({config:{initialMode:'auto',requirePairedEvaluation:true},runCase:()=>{dispatched++;throw Error('must-not-dispatch');}});f.work();const r=await f.rt.launch(f.agent,{manual:true});assert.equal(r.status,'held-no-trusted-cases');assert.equal(dispatched,0);assert.equal(f.data.projects.get(key(root)).skills.length,0);assert.equal(f.data.projects.get(key(root)).proposals[0].pubReason,'held-evaluation');await f.close();
 });

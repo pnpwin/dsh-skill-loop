@@ -109,7 +109,7 @@ export function createComparisonAdapters(ctx, { ownerAgent, NativeToolExecutor, 
     const prepared = feedbackInput(request, root), usage = emptyUsage();
     const stream = options => {
       signal.throwIfAborted();
-      const role = options.purpose === 'skill-loop-curator' ? 'curator' : 'reflector';
+      const role = options.purpose === 'dsh-skillgrowth-curator' ? 'curator' : 'reflector';
       onDispatch({ role, arm: request.arm, sessionId: options.sessionId, budget: budget.snapshot() });
       return ctx.llm.stream(options);
     };
@@ -129,7 +129,7 @@ export function createComparisonAdapters(ctx, { ownerAgent, NativeToolExecutor, 
       }
       budget.reserve('reflector');
       draft = await raceSignal(collectReview(measured, { provider: selectedProvider, model: selectedModel, sessionId: ownerAgent.id,
-        system: REFLECT_SYSTEM, messages: [{ role: 'user', content: [{ type: 'text', text: input }] }], maxTokens: 3000, signal, purpose: 'skill-loop-benchmark-legacy' }), signal);
+        system: REFLECT_SYSTEM, messages: [{ role: 'user', content: [{ type: 'text', text: input }] }], maxTokens: 3000, signal, purpose: 'dsh-skillgrowth-benchmark-legacy' }), signal);
       addUsage(usage, { estimates: estimatesFor({ inputChars: JSON.stringify([{ role: 'user', content: [{ type: 'text', text: input }] }]).length, systemChars: REFLECT_SYSTEM.length, outputChars }) });
     } else {
       const proposer = createAceLiteProposer({ stream, provider: selectedProvider, model: selectedModel, config: settings, sessionId: ownerAgent.id, project,

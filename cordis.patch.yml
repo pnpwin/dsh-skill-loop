@@ -1,6 +1,6 @@
 - insert:
-    - id: local-skill-loop
-      name: '@pnpwin/dsh-skill-loop'
+    - id: dsh-skillgrowth
+      name: '@pnpwin/dsh-skillgrowth'
       config:
         enabled: true
         initialMode: review

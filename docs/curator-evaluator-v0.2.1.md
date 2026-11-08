@@ -2,7 +2,7 @@
 
 ## What changed
 
-The DSH skill creator supplies the authoring methodology. [Compact policy](../src/creator-policy.js) adds a small fixed rubric to the no-tools Curator: project applicability, positive triggers/near misses, minimal procedure/output/checks, genuine agent RED, no forced skill when baseline already succeeds, preservation of identities/protection, adaptation-only refinement and no invented receipts. The full authoring manual is not injected into every auxiliary request.
+The DSH skill creator supplies the authoring methodology. [Compact policy](../src/craft-policy.js) adds a small fixed rubric to the no-tools Curator: project applicability, positive triggers/near misses, minimal procedure/output/checks, genuine agent RED, no forced skill when baseline already succeeds, preservation of identities/protection, adaptation-only refinement and no invented receipts. The full authoring manual is not injected into every auxiliary request.
 
 [Independent paired evaluator](../src/paired-evaluator.js) uses trusted immutable suites and fresh native ReAct agents. It is Host code, not the Curator scoring its own prose. There is no GEPA search, arbitrary shell execution, model-generated verifier authority, external model client or new server.
 

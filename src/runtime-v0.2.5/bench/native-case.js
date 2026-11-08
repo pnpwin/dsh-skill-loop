@@ -88,8 +88,8 @@ export function createNativeCaseRunner(ctx,{NativeToolExecutor,createUserMessage
           if(instructions){
             // The loop factory's child context does not inject skills; retain a checked scoped lookup.
             const skills=agentCtx.get('skills');if(!skills)throw Error('native-case-skills-unavailable');
-            skills.register({...instructions,source:'runtime',provider:'local-skill-loop-benchmark',resourceBase:{kind:'opaque',description:'Evaluation-only candidate; not a production publication.'}});
-            const loadCandidate=async()=>{const skill=await skills.get(instructions.name,{cwd,scope:agent,signal});if(!skill||skill.provider!=='local-skill-loop-benchmark'||skill.content!==instructions.content)throw Error('fixture-candidate-shadowed');loaded=true;return {name:skill.name,content:skill.content,provider:skill.provider,evaluationOnly:true};};
+            skills.register({...instructions,source:'runtime',provider:'dsh-skillgrowth-benchmark',resourceBase:{kind:'opaque',description:'Evaluation-only candidate; not a production publication.'}});
+            const loadCandidate=async()=>{const skill=await skills.get(instructions.name,{cwd,scope:agent,signal});if(!skill||skill.provider!=='dsh-skillgrowth-benchmark'||skill.content!==instructions.content)throw Error('fixture-candidate-shadowed');loaded=true;return {name:skill.name,content:skill.content,provider:skill.provider,evaluationOnly:true};};
             if(preloadCandidate)await loadCandidate();
             else register('ace_fixture_skill','Load the exact case-scoped candidate through the native skill registry (not a production publication).',{type:'object',properties:{},additionalProperties:false},loadCandidate);
           }

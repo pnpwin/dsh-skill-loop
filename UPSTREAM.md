@@ -43,7 +43,7 @@ This project borrows ideas and independently implements JavaScript/native DSH in
 
 ## Authoring license notice
 
-Authoring methodology references Apache-2.0 and MIT materials; complete copyright/license notices are retained in the authoring bundle's license metadata. This plugin's independently implemented code remains [MIT](<LICENSE>). Runtime instructions contain only the working rubric; source identity is recorded in [policy metadata](<src/creator-policy.js>).
+Authoring methodology references Apache-2.0 and MIT materials; complete copyright/license notices are retained in the authoring bundle's license metadata. This plugin's independently implemented code remains [MIT](<LICENSE>). Runtime instructions contain only the working rubric; source identity is recorded in [policy metadata](<src/craft-policy.js>).
 
 ## Measurement and evaluation boundaries
 
@@ -57,4 +57,4 @@ See the [English README](<README.md>) or [Russian README](<README.ru.md>) for po
 
 ## Preserved DSH identities
 
-The bundle retains `local-skill-loop` row/provider, `skill_loop` tool and `local_skill_loop` main storage domain. The main backend domain version remains 1 while application records migrate to V2 with checksummed native backups. Old binaries cannot read V2 without an explicit supported restore; preserving identifiers is not a claim of automatic downgrade compatibility.
+Public identifiers are now `dsh-skillgrowth` row/provider and `dsh_skillgrowth` tool. Only private data compatibility identifiers `local_skill_loop` and `local_skill_loop_backups` are retained. Backend domain version1/application schemaV2 and checksummed backups are unchanged. Public configuration must follow the native ConfigEditor migration; old binaries cannot read V2 without a supported restore. No automatic downgrade compatibility is claimed.

@@ -463,11 +463,11 @@ export function renderCandidate(proposal, root = proposal?.evaluation?.scope) {
   const manifest = { schemaVersion: 2, name: proposal.name, proposalId: proposal.id, baseRevision: proposal.baseRevision,
     candidateHash: proposal.candidateHash, evaluationOnly: true, evidenceStatus: proposal.evidenceStatus, evaluationStatus: proposal.evaluationStatus };
   return renderBody(proposal, { prefix: 'EVALUATION ONLY — pending candidate, not published or active. Evidence and quality are independent.\n\n',
-    footer: `Pending proposal ${proposal.id}; base revision ${proposal.baseRevision}; evidence ${proposal.evidenceStatus}; evaluation ${proposal.evaluationStatus}. Read skill_loop read ${proposal.id} for proposal history.`, manifest });
+    footer: `Pending proposal ${proposal.id}; base revision ${proposal.baseRevision}; evidence ${proposal.evidenceStatus}; evaluation ${proposal.evaluationStatus}. Read dsh_skillgrowth read ${proposal.id} for proposal history.`, manifest });
 }
 export function renderSkill(skill) {
   if (!skillOK(skill) || skill.status !== 'active') throw new TypeError('Invalid or archived skill');
   const manifest = { schemaVersion: 2, name: skill.name, revision: skill.revision, snapshotHash: snapshotHash(skill) };
   // Full origin hashes/receipts stay behind read/show, not in model context.
-  return renderBody(skill, { footer: `Revision ${skill.revision}. Read skill_loop read ${skill.name} for history and provenance.`, manifest });
+  return renderBody(skill, { footer: `Revision ${skill.revision}. Read dsh_skillgrowth read ${skill.name} for history and provenance.`, manifest });
 }

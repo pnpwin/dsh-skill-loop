@@ -7,7 +7,7 @@ import { initialProjection, foldProjection, selectBatch } from './projection.js'
 import { initialFeedback, foldFeedback, selectExposures, feedbackForBatch } from './feedback.js';
 import { GUIDE, AGENT_GUIDANCE } from './prompts.js';
 import {createAceLiteProposer,summarizeJudgments,refineCurator} from './review.js';
-import {CREATOR_POLICY_VERSION} from './creator-policy.js';
+import {CRAFT_POLICY_VERSION} from './craft-policy.js';
 import {createPairedEvaluatorRegistry,validatePairedCaseSet} from './paired-evaluator.js';
 import { openProjectStore } from './store.js';
 import { createCallBudget, createEvaluatorRegistry,validateCaseSet } from './optimizer.js';
@@ -16,7 +16,7 @@ import {createComparisonAdapters} from './bench/adapters.js';
 import {runComparison} from './bench/runner.js';
 import {createNativeFixtureSet} from './bench/native-cases.js';
 
-const PROVIDER='local-skill-loop',TOOL='skill_loop',COMMAND='skill-loop';
+const PROVIDER='dsh-skillgrowth',TOOL='dsh_skillgrowth',COMMAND='dsh-skillgrowth';
 const hash=v=>createHash('sha256').update(v).digest('hex').slice(0,32);
 const nowISO=()=>new Date().toISOString();
 const enabled=c=>typeof c.enabled?.get==='function'?c.enabled.get():c.enabled!==false;
@@ -40,7 +40,7 @@ export async function installRuntime(ctx,config,{z,runCase,caseSets=[],NativeToo
   let invalidate=()=>{},store,stopWatch;
   ctx.effect(()=>async()=>{lifetime.abort();for(const c of controllers.keys())c.abort();if(typeof stopWatch==='function')stopWatch();await Promise.allSettled([...jobs]);await store?.drain();await store?.close();});
   store=await openProjectStore(ctx,{z,initialMode:config.initialMode,invalidate:()=>invalidate()});
-  const projection=await ctx.sessionProjections.register({key:'local-skill-loop-observations',stateVersion:4,stateSchema:z.custom(v=>v&&v.version===1&&Array.isArray(v.events)),init:initProjection,apply:foldAll});
+  const projection=await ctx.sessionProjections.register({key:'dsh-skillgrowth-observations',stateVersion:4,stateSchema:z.custom(v=>v&&v.version===1&&Array.isArray(v.events)),init:initProjection,apply:foldAll});
   const rootOf=a=>canonicalRoot(ctx.workingDirectory.get(a.session));
   const projectOf=root=>store.read(root);
   function cutOf(agent,seq=agent.session.seq){const root=rootOf(agent),old=cuts.get(agent.id);if(!old||old.root!==root){const value={root,floor:seq};cuts.set(agent.id,value);return value;}return old;}
@@ -93,7 +93,7 @@ export async function installRuntime(ctx,config,{z,runCase,caseSets=[],NativeToo
         }
       }
       committed={status,code,proposalId:outcome.proposalId};
-      await store.finish(root,status,code,{runId,stages,judgments,evaluations,budget:budget.snapshot(),creatorPolicy:CREATOR_POLICY_VERSION});return committed;
+      await store.finish(root,status,code,{runId,stages,judgments,evaluations,budget:budget.snapshot(),craftPolicy:CRAFT_POLICY_VERSION});return committed;
     }catch(error){
       if(committed){ctx.logger.warn('ACE project committed; telemetry unavailable: %s',compact(error));return {...committed,telemetry:'unavailable',telemetryCode:compact(error)};}
       if(error.telemetry&&!stages.includes(error.telemetry))stages.push(error.telemetry);
@@ -102,15 +102,15 @@ export async function installRuntime(ctx,config,{z,runCase,caseSets=[],NativeToo
     }finally{controllers.delete(controller);inFlight.delete(root);}
   }
   function launch(agent,options){const root=rootOf(agent),job=trackJob(root,runReview(agent,options));job.catch(e=>ctx.logger.warn('ACE review failed: %s',compact(e)));return job;}
-  function status(root){const p=projectOf(root),c=store.control(root);return {...ace.summary(p),engine:'ace-lite',version:'0.2.4',creator:{policy:CREATOR_POLICY_VERSION,requirePairedEvaluation:requirePaired,autoEvaluate:config.autoEvaluate!==false,maxRefinements:config.maxRefinements??1,matchingCaseSets:trustedCaseSets.filter(s=>s.appliesTo?.root===root).map(s=>({id:s.id,names:s.appliesTo.names}))},budget:{dailyLimit:config.dailyReviews,attempts:c.attempts,maxAuxCallsPerDay:config.maxAuxCallsPerDay??12,auxCalls:c.auxCalls},lastReview:{status:c.status,code:c.code,at:c.updatedAt,telemetry:c.telemetry?.at(-1)??null},storageRestored:restoredRoots.has(root)};}
+  function status(root){const p=projectOf(root),c=store.control(root);return {...ace.summary(p),engine:'ace-lite',version:'0.2.5',craft:{policy:CRAFT_POLICY_VERSION,requirePairedEvaluation:requirePaired,autoEvaluate:config.autoEvaluate!==false,maxRefinements:config.maxRefinements??1,matchingCaseSets:trustedCaseSets.filter(s=>s.appliesTo?.root===root).map(s=>({id:s.id,names:s.appliesTo.names}))},budget:{dailyLimit:config.dailyReviews,attempts:c.attempts,maxAuxCallsPerDay:config.maxAuxCallsPerDay??12,auxCalls:c.auxCalls},lastReview:{status:c.status,code:c.code,at:c.updatedAt,telemetry:c.telemetry?.at(-1)??null},storageRestored:restoredRoots.has(root)};}
   ctx.skills.registerProvider(control=>{invalidate=control.invalidate;const visible=cwd=>{const root=canonicalRoot(cwd);return root?projectOf(root).skills.filter(s=>s.status==='active'):[];};return {
     name:PROVIDER,
-    async list(options){if(!enabled(config))return [];const root=canonicalRoot(options.cwd);if(!root)return [];return visible(options.cwd).map(s=>({name:s.name,description:s.description,whenToUse:s.trigger,invocation:{modelInvocable:true,userInvocable:true},source:'custom',provider:PROVIDER,resourceBase:{kind:'opaque',description:'Project-scoped versioned skill; history: /skill-loop show '+s.name},rank:25,locator:{project:hash(root),name:s.name,revision:s.revision}}));},
+    async list(options){if(!enabled(config))return [];const root=canonicalRoot(options.cwd);if(!root)return [];return visible(options.cwd).map(s=>({name:s.name,description:s.description,whenToUse:s.trigger,invocation:{modelInvocable:true,userInvocable:true},source:'custom',provider:PROVIDER,resourceBase:{kind:'opaque',description:'Project-scoped versioned skill; history: /dsh-skillgrowth show '+s.name},rank:25,locator:{project:hash(root),name:s.name,revision:s.revision}}));},
     async get(candidate,options){options.signal?.throwIfAborted();if(!enabled(config))return undefined;const root=canonicalRoot(options.cwd);if(!root||candidate.locator?.project!==hash(root))return undefined;const skill=visible(options.cwd).find(s=>s.name===candidate.name&&s.revision===candidate.locator.revision);if(!skill)return undefined;return {...candidate,content:ace.renderSkill(skill),metadata:{revision:skill.revision,scope:'project',quality:'evidence-linked; not universal benchmark validation'}};},
   };});
-  ctx.skills.register({name:'skill-loop-guide',description:'Inspect automatic ACE-lite learning, review, soft auto, entry deltas and rollback.',content:GUIDE,source:'runtime',provider:PROVIDER,resourceBase:{kind:'opaque',description:'Native commands and skill_loop tool; no supporting files.'}});
-  ctx.systemPrompt.section({name:'local-skill-loop-guidance',order:870,text:({scope})=>enabled(config)&&(!scope?.session||rootAgent(scope))?AGENT_GUIDANCE:''});
-  ctx.systemPrompt.context({name:'local-skill-loop-status',order:870,text:({scope})=>{if(!enabled(config)||!rootAgent(scope))return '';const root=rootOf(scope);if(!root)return '';const p=projectOf(root),pending=p.proposals.filter(x=>x.status==='pending').slice(-3);return `Skill loop: ${p.paused?'paused':p.mode}. ${pending.length?'Pending (not active instructions): '+pending.map(x=>x.id+' '+x.name+(x.confirmed?' [evidence confirmed]':' [unconfirmed]')).join('; ')+'. Inspect with skill_loop read; human /skill-loop approve <id>.':''}`;}});
+  ctx.skills.register({name:'dsh-skillgrowth-guide',description:'Inspect automatic ACE-lite learning, review, soft auto, entry deltas and rollback.',content:GUIDE,source:'runtime',provider:PROVIDER,resourceBase:{kind:'opaque',description:'Native commands and dsh_skillgrowth tool; no supporting files.'}});
+  ctx.systemPrompt.section({name:'dsh-skillgrowth-guidance',order:870,text:({scope})=>enabled(config)&&(!scope?.session||rootAgent(scope))?AGENT_GUIDANCE:''});
+  ctx.systemPrompt.context({name:'dsh-skillgrowth-status',order:870,text:({scope})=>{if(!enabled(config)||!rootAgent(scope))return '';const root=rootOf(scope);if(!root)return '';const p=projectOf(root),pending=p.proposals.filter(x=>x.status==='pending').slice(-3);return `Skillgrowth: ${p.paused?'paused':p.mode}. ${pending.length?'Pending (not active instructions): '+pending.map(x=>x.id+' '+x.name+(x.confirmed?' [evidence confirmed]':' [unconfirmed]')).join('; ')+'. Inspect with dsh_skillgrowth read; human /dsh-skillgrowth approve <id>.':''}`;}});
   ctx.tools.register({name:TOOL,description:'Inspect project learning status or a skill/proposal; request reflection after a correction. Cannot confirm, approve or change mode.',parameters:{type:'object',properties:{action:{type:'string',enum:['status','read','reflect']},id:{type:'string',description:'Skill name or proposal id for read.'},note:{type:'string',description:'Brief intervention; never verification.'}},required:['action'],additionalProperties:false},output:{schema:{type:'object',additionalProperties:true},render:(_a,v)=>textResult(v)},async execute(args,exec){
     if(!rootAgent(exec.agent))throw Error('Root session required');const root=rootOf(exec.agent);if(!root)throw Error('Workspace unavailable');if(args.action==='status')return status(root);const p=projectOf(root);
     if(args.action==='read')return readItem(p,args.id);
@@ -131,7 +131,7 @@ export async function installRuntime(ctx,config,{z,runCase,caseSets=[],NativeToo
         registry=createPairedEvaluatorRegistry({runCase:executeCase,hashCandidate:ace.candidateHash,hashBaseline:ace.snapshotHash,model});
         for(const cases of trustedCaseSets){try{registry.registerCaseSet(cases);}catch{ctx.logger.warn('Paired evaluator skipped incompatible trusted suite %s',cases.id);}}
         caseSetId=caseSetId??registry.select(root,candidate.name);
-        if(!caseSetId)return {publication:'held-no-trusted-cases',receipt:null,policy:CREATOR_POLICY_VERSION};
+        if(!caseSetId)return {publication:'held-no-trusted-cases',receipt:null,policy:CRAFT_POLICY_VERSION};
         const baseline=projectOf(root).skills.find(s=>s.name===candidate.name&&s.status==='active')??null;
         let training=await registry.train(candidate,caseSetId,{baseline,scope:root,budget,signal});options.onTraining?.(training);
         if(training.verdict==='candidate-failed'&&typeof options.refine==='function'&&(config.maxRefinements??1)>0&&budget.snapshot().remaining>=5){
@@ -146,7 +146,7 @@ export async function installRuntime(ctx,config,{z,runCase,caseSets=[],NativeToo
       signal.throwIfAborted();if(!guard()||!registry.owns(receipt,{candidateHash:candidate.candidateHash,scope:root}))throw Error('invalid-evaluation-receipt');
       let decision;await store.mutate(root,c=>{let next=ace.attachEvaluation(c,candidate.id,receipt,nowISO());if(next.mode==='auto'){decision=ace.autoPublish(next,candidate.id,nowISO(),{requirePaired});next=decision.project;}return next;},{signal,guard});
       const value={receipt,proposalId:candidate.id,publication:decision?.status??'pending-review',refined,...(report?{report}:{}),budget:budget.snapshot()};
-      if(options.telemetry!==false)await store.finish(root,value.publication,receipt.metrics?.comparison?.verdict??'',{runId:receipt.runId,evaluation:receipt,budget:value.budget,policy:CREATOR_POLICY_VERSION});
+      if(options.telemetry!==false)await store.finish(root,value.publication,receipt.metrics?.comparison?.verdict??'',{runId:receipt.runId,evaluation:receipt,budget:value.budget,policy:CRAFT_POLICY_VERSION});
       return value;
     })();trackJob(root,job);try{return await job;}finally{controllers.delete(controller);}
   }
@@ -186,7 +186,7 @@ export async function installRuntime(ctx,config,{z,runCase,caseSets=[],NativeToo
     else if(action==='verify'){
       const candidate=p.proposals.find(x=>x.id===id&&x.status==='pending');if(!candidate)throw Error('Pending proposal not found');
       value=await verify(agent,root,candidate,arg,signal);
-    }else throw Error('Unknown command; /skill-loop for help');
+    }else throw Error('Unknown command; /dsh-skillgrowth for help');
     return {kind:'success',text:JSON.stringify(value,null,2)};
   }catch(error){return {kind:'error',text:redact(String(error.message||'Command failed')).slice(0,400)};}}});
   ctx.on('session/event',(session,event)=>{if(!enabled(config))return;const agent=ctx.agents.get(session.id);if(!rootAgent(agent))return;const cut=cutOf(agent,event.seq);if(!cut.root)return;if(event.type==='user/message'&&event.data?.source?.kind==='user')for(const[c,owner]of controllers)if(owner.agentId===agent.id)c.abort();if(event.type==='turn/end'){const hint=hints.get(agent.id);hints.delete(agent.id);if(event.data?.reason?.kind==='completed')void launch(agent,{force:!!hint,hint:hint?.note||''});}});

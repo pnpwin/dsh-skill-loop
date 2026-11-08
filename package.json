@@ -1,24 +1,50 @@
 {
-  "name": "@pnpwin/dsh-skill-loop",
-  "version": "0.2.4",
+  "name": "@pnpwin/dsh-skillgrowth",
+  "version": "0.2.5",
   "private": true,
   "type": "module",
   "description": "Native ReAct + ACE-lite procedural learning with compact Curator skill creation, trusted paired evaluation, gated auto publication and versioned rollback for DSH.",
   "exports": {
-    ".": "./src/runtime-v0.2.4/index.js",
+    ".": "./src/runtime-v0.2.5/index.js",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./src/icon.svg",
-    "./optimizer": "./src/runtime-v0.2.4/optimizer.js",
-    "./paired-evaluator": "./src/runtime-v0.2.4/paired-evaluator.js",
-    "./bench": "./src/runtime-v0.2.4/bench/index.js"
+    "./optimizer": "./src/runtime-v0.2.5/optimizer.js",
+    "./paired-evaluator": "./src/runtime-v0.2.5/paired-evaluator.js",
+    "./bench": "./src/runtime-v0.2.5/bench/index.js"
   },
-  "files": ["src/*.js", "src/bench/**/*.js", "src/runtime-v0.2.4/**/*.js", "src/runtime-v0.2.4/snapshot.json", "src/validation/**/*.json", "src/icon.svg", "locale/*.json", "cordis.patch.yml", "README.md", "README.ru.md", "docs/*.md", "LICENSE", "UPSTREAM.md"],
+  "files": [
+    "src/*.js",
+    "src/bench/**/*.js",
+    "src/runtime-v0.2.5/**/*.js",
+    "src/runtime-v0.2.5/snapshot.json",
+    "src/validation/**/*.json",
+    "src/icon.svg",
+    "locale/*.json",
+    "cordis.patch.yml",
+    "README.md",
+    "README.ru.md",
+    "docs/*.md",
+    "LICENSE",
+    "UPSTREAM.md"
+  ],
   "license": "MIT",
-  "repository": { "type": "git", "url": "git+https://github.com/pnpwin/dsh-skill-loop.git" },
-  "homepage": "https://github.com/pnpwin/dsh-skill-loop#readme",
-  "bugs": { "url": "https://github.com/pnpwin/dsh-skill-loop/issues" },
-  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } },
-  "engines": { "node": ">=22", "dsh": "0.2.2-rc.1" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pnpwin/dsh-skillgrowth.git"
+  },
+  "homepage": "https://github.com/pnpwin/dsh-skillgrowth#readme",
+  "bugs": {
+    "url": "https://github.com/pnpwin/dsh-skillgrowth/issues"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "engines": {
+    "node": ">=22",
+    "dsh": "0.2.2-rc.1"
+  },
   "scripts": {
     "test": "node --test tests/*.test.mjs",
     "build": "node src/build-runtime.js && node src/check-package.js",

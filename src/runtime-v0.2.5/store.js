@@ -66,8 +66,8 @@ function validSnapshot(v) {
 /** Same-process root serialization and durability-first native KV; no cross-table transaction assumption. */
 export async function openProjectStore(ctx,{z,now=()=>new Date().toISOString(),invalidate=()=>{},initialMode='review'}) {
   const main=await ctx.storageDomain.open({name:'local_skill_loop',version:1,layout:'per-record',tables:{
-    projects:{valueSchema:z.custom(v=>legacy.validateProject(v)||ace.validateProject(v),'Invalid skill loop project')},
-    controls:{valueSchema:z.custom(validControl,'Invalid skill loop control')},
+    projects:{valueSchema:z.custom(v=>legacy.validateProject(v)||ace.validateProject(v),'Invalid skillgrowth project')},
+    controls:{valueSchema:z.custom(validControl,'Invalid skillgrowth control')},
   }});
   let backup;
   try { backup=await ctx.storageDomain.open({name:'local_skill_loop_backups',version:1,layout:'per-record',tables:{snapshots:{valueSchema:z.custom(validSnapshot,'Invalid migration snapshot')}}}); }

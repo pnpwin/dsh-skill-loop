@@ -12,7 +12,7 @@ const context={runId:'r',sessionId:'s',turn:1,now:'2026-11-07T10:00:00.000Z',con
 function streamFor(values,options=[]){return async function*(o){options.push(o);const value=values.shift();yield {type:'reasoning-delta',text:'PRIVATE-REASONING'};yield {type:'text-delta',text:JSON.stringify(value)};yield {type:'usage',usage:{inputTokens:10,outputTokens:5}};yield {type:'finish',reason:{kind:'stop'}};};}
 test('ACE proposer uses two roles, shared JSON payload cap and split output',async()=>{
   const calls=[],stages=[],budget=createCallBudget(2);const p=createAceLiteProposer({stream:streamFor([reflection,{proposal:delta}],calls),provider:'p',model:'m',config,project:ace.newProject('/project'),onStage:s=>stages.push(s)});const result=await p.propose({batch,feedback:null},{budget,signal:new AbortController().signal});
-  assert.deepEqual(result.candidate.proposal,delta);assert.deepEqual(calls.map(o=>o.maxTokens),[1000,2000]);assert.deepEqual(calls.map(o=>o.purpose),['skill-loop-reflector','skill-loop-curator']);assert.ok(calls.reduce((n,o)=>n+o.messages[0].content[0].text.length,0)<=16000);assert.equal(budget.snapshot().used,2);assert.equal(result.usage.provider.reportedCalls,2);assert.equal(result.usage.provider.cacheReadTokens,null);assert.ok(!JSON.stringify(result).includes('PRIVATE-REASONING'));assert.equal(stages.length,2);
+  assert.deepEqual(result.candidate.proposal,delta);assert.deepEqual(calls.map(o=>o.maxTokens),[1000,2000]);assert.deepEqual(calls.map(o=>o.purpose),['dsh-skillgrowth-reflector','dsh-skillgrowth-curator']);assert.ok(calls.reduce((n,o)=>n+o.messages[0].content[0].text.length,0)<=16000);assert.equal(budget.snapshot().used,2);assert.equal(result.usage.provider.reportedCalls,2);assert.equal(result.usage.provider.cacheReadTokens,null);assert.ok(!JSON.stringify(result).includes('PRIVATE-REASONING'));assert.equal(stages.length,2);
 });
 test('no insights means no Curator call but preserves actual lessons',async()=>{
   const calls=[],budget=createCallBudget(2);const p=createAceLiteProposer({stream:streamFor([{...reflection,insights:[]}],calls),provider:'p',model:'m',config,project:ace.newProject('/project')});const result=await p.propose({batch},{budget});assert.equal(calls.length,1);assert.equal(result.candidate.proposal,null);assert.equal(result.candidate.lessons.length,1);assert.equal(budget.snapshot().used,1);
@@ -21,11 +21,11 @@ test('exhausted daily auxiliary allowance after reflection produces reflected-on
   const calls=[],states=[];const p=createAceLiteProposer({stream:streamFor([reflection],calls),provider:'p',model:'m',config,project:ace.newProject('/project'),reserve:async role=>role==='reflector'?'claimed':'auxiliary-budget',onState:(status,code)=>states.push({status,code})});const result=await p.propose({batch},{budget:createCallBudget(2)});assert.equal(calls.length,1);assert.equal(result.candidate.proposal,null);assert.equal(result.candidate.lessons.length,1);assert.deepEqual(states,[{status:'reflected-only',code:'auxiliary-budget'}]);
 });
 test('malformed JSON retains reported usage diagnostics and never retries',async()=>{
-  const opts={messages:[{role:'user',content:[{type:'text',text:'{}'}]}],purpose:'skill-loop-curator'};
+  const opts={messages:[{role:'user',content:[{type:'text',text:'{}'}]}],purpose:'dsh-skillgrowth-curator'};
   await assert.rejects(collectRole(async function*(){yield {type:'text-delta',text:'not JSON'};yield {type:'usage',usage:{inputTokens:7,outputTokens:2}};yield {type:'finish',reason:{kind:'stop'}};},opts),error=>{assert.equal(error.telemetry.usage.inputTokens,7);return true;});
 });
 test('unknown usage remains unknown, and output/finish bounds fail closed',async()=>{
-  const opts={messages:[],purpose:'skill-loop-reflector'};
+  const opts={messages:[],purpose:'dsh-skillgrowth-reflector'};
   const result=await collectRole(async function*(){yield {type:'text-delta',text:'{}'};yield {type:'finish',reason:{kind:'stop'}};},opts);assert.equal(result.telemetry.usage,null);assert.equal(result.telemetry.usageStatus,'unknown');
   await assert.rejects(collectRole(async function*(){yield {type:'text-delta',text:' '.repeat(100)};},opts,{maxChars:20}),/output-limit/);
   await assert.rejects(collectRole(async function*(){yield {type:'text-delta',text:'{}'};yield {type:'finish',reason:{kind:'max-tokens'}};},opts),/max-tokens/);

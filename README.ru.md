@@ -1,10 +1,10 @@
-# Skill loop для DeepSeek Harness
+# Skillgrowth для DeepSeek Harness
 
-[GitHub release v0.2.4](<docs/release-v0.2.4.md>): код/build/CLI/bench scripts — в `src/`; корневые файлы — документация, manifests и DSH discovery metadata. Каталоги тестов и ресурсов не переносились. Сопутствующий пакет: [dsh-skill-creator](<https://github.com/pnpwin/dsh-skill-creator>).
+[GitHub release v0.2.5](<docs/release-v0.2.5.md>): код/build/CLI/bench scripts — в `src/`; корневые файлы — документация, manifests и DSH discovery metadata. Каталоги тестов и ресурсов не переносились. Сопутствующий пакет: [dsh-skillcraft](<https://github.com/pnpwin/dsh-skillcraft>).
 
-[English](<README.md>) · [GitHub](<https://github.com/pnpwin/dsh-skill-loop>) · [MIT](<LICENSE>) · `@pnpwin/dsh-skill-loop`
+[English](<README.md>) · [GitHub](<https://github.com/pnpwin/dsh-skillgrowth>) · [MIT](<LICENSE>) · `@pnpwin/dsh-skillgrowth`
 
-**v0.2.4:** Curator получает компактные правила из ЕДИНОГО DSH skill creator; отдельный native paired evaluator проверяет автоматическую публикацию. Не более одного уточнения по adaptation, без обучения на holdout. Режим, данные и бюджеты сохраняются. [Интеграция, trusted suites и пределы](<docs/curator-evaluator-v0.2.1.md>). Для сравнения нужен подходящий проверенный владельцем набор задач; модельный spec сам не становится полномочием.
+**v0.2.5:** Curator получает компактные правила из ЕДИНОГО DSH skill creator; отдельный native paired evaluator проверяет автоматическую публикацию. Не более одного уточнения по adaptation, без обучения на holdout. Режим, данные и бюджеты сохраняются. [Интеграция, trusted suites и пределы](<docs/curator-evaluator-v0.2.1.md>). Для сравнения нужен подходящий проверенный владельцем набор задач; модельный spec сам не становится полномочием.
 
 **ACE-lite v0.2:** проектное накопление процедурных навыков внутри существующего ReAct-процесса DSH. Видимая работа → ограниченная рефлексия → атомарные уроки → небольшая правка навыка. Это не новый agent loop, сервер памяти, обучение весов или новая UI-панель.
 
@@ -17,18 +17,18 @@
 Для проверенного локального checkout попросите агента вызвать Plugin Manager с настоящим абсолютным каталогом:
 
 ```json
-{"action":"install_bundle","target":"/absolute/path/to/dsh-skill-loop","enabled":true}
+{"action":"install_bundle","target":"/absolute/path/to/dsh-skillgrowth","enabled":true}
 ```
 
 Менеджер может оставить ссылку на этот каталог — не удаляйте и не переносите его. Установка tagged release через Plugin Manager:
 
 ```json
-{"action":"install_bundle","target":"github:pnpwin/dsh-skill-loop#v0.2.4","enabled":true}
+{"action":"install_bundle","target":"github:pnpwin/dsh-skillgrowth#v0.2.5","enabled":true}
 ```
 
-После обновления проверьте application result менеджера и живой статус `skill_loop`: сохранённый package selection сам по себе не подтверждает активацию.
+После обновления проверьте application result менеджера и живой статус `dsh_skillgrowth`: сохранённый package selection сам по себе не подтверждает активацию.
 
-Перед заменой отключите дублирующий старый локальный bundle. Идентификаторы row/provider `local-skill-loop`, tool `skill_loop` и основного native storage domain `local_skill_loop` сохраняются. **Но формат прикладных записей меняется: просто вернуть старый бинарник небезопасно.** См. [Хранение и downgrade](<#хранение-и-downgrade>).
+Перед заменой удалите прежний активный bundle. Публичные row/provider/tool/command переименованы в Skillgrowth; существующую конфигурацию нужно перенести штатным ConfigEditor по [инструкции](<docs/release-v0.2.5.md>). Приватные storage domains `local_skill_loop`/`local_skill_loop_backups` оставлены неизменными: библиотека, pending IDs/hashes, режим и счётчики не теряются. **Предосторожности V2 downgrade остаются в силе.** См. [Хранение и downgrade](<#хранение-и-downgrade>).
 
 ## Как работает ACE-lite
 
@@ -81,7 +81,7 @@ Exposure определяется по durable native событиям загр�
 
 ### Evaluator — не универсальный сервис сертификации
 
-Host evaluator принимает только явно зарегистрированные **trusted case-set IDs**. По умолчанию registry пуст. Владелец может задать `declarativeCaseSetsJson` как JSON-массив подходящих case sets для встроенного memory-only runner либо явно подключить доверенный Host runner. Формат конечных операций показан в [native fixtures](<src/bench/native-cases.js>); произвольный JavaScript не исполняется. Зарегистрированные IDs: `/skill-loop verifiers`. Прохождение постороннего общего набора не сертифицирует произвольный навык.
+Host evaluator принимает только явно зарегистрированные **trusted case-set IDs**. По умолчанию registry пуст. Владелец может задать `declarativeCaseSetsJson` как JSON-массив подходящих case sets для встроенного memory-only runner либо явно подключить доверенный Host runner. Формат конечных операций показан в [native fixtures](<src/bench/native-cases.js>); произвольный JavaScript не исполняется. Зарегистрированные IDs: `/dsh-skillgrowth verifiers`. Прохождение постороннего общего набора не сертифицирует произвольный навык.
 
 Receipt привязан к candidate hash, case-set hash, scope и запуску. Перед прикреплением runtime проверяет принадлежность registry; модельный JSON и копия объекта receipt не являются полномочием. Pass подтверждает только реально выполненные проверки. Плагин не принимает придуманные моделью shell-тесты и не исполняет произвольный сгенерированный JavaScript ради receipt.
 
@@ -93,23 +93,23 @@ Receipt привязан к candidate hash, case-set hash, scope и запуск
 
 | Команда | Действие |
 |---|---|
-| `/skill-loop status` | Режим, счётчики, очередь и отдельные бюджеты reviews/auxiliary calls |
-| `/skill-loop pending` | Pending с evidence/evaluation status |
-| `/skill-loop show ID_OR_NAME` | Содержимое, delta, hashes, история и provenance |
-| `/skill-loop confirm ID` | Удостоверить проверенный исходный результат; без публикации |
-| `/skill-loop approve ID`, `/skill-loop reject ID` | Явно опубликовать/отклонить |
-| `/skill-loop mode review`, `/skill-loop mode auto` | Явно установить политику scope |
-| `/skill-loop analyze` | Анализ нового завершённого окна; не обходит подтверждение и лимиты |
-| `/skill-loop curate` | Advisory/no-op граница; без автоматического semantic merge/pruning |
-| `/skill-loop pin NAME ENTRY_ID`, `/skill-loop unpin NAME ENTRY_ID` | Защитить/снять защиту; новая ревизия инвалидирует stale candidates |
-| `/skill-loop verify ID CASESET` | Проверить по зарегистрированному host case set; без runner/case set недоступно |
-| `/skill-loop archive NAME`, `/skill-loop restore NAME` | Скрыть/вернуть навык без удаления истории |
-| `/skill-loop rollback NAME N` | Новая ревизия из сохранённой версии |
-| `/skill-loop storage-backups` | Список migration snapshots этого scope |
-| `/skill-loop storage-restore BACKUP_ID` | Явно вернуть валидный V1 project snapshot; см. downgrade |
-| `/skill-loop pause`, `/skill-loop resume` | Приостановить/возобновить learning scope |
+| `/dsh-skillgrowth status` | Режим, счётчики, очередь и отдельные бюджеты reviews/auxiliary calls |
+| `/dsh-skillgrowth pending` | Pending с evidence/evaluation status |
+| `/dsh-skillgrowth show ID_OR_NAME` | Содержимое, delta, hashes, история и provenance |
+| `/dsh-skillgrowth confirm ID` | Удостоверить проверенный исходный результат; без публикации |
+| `/dsh-skillgrowth approve ID`, `/dsh-skillgrowth reject ID` | Явно опубликовать/отклонить |
+| `/dsh-skillgrowth mode review`, `/dsh-skillgrowth mode auto` | Явно установить политику scope |
+| `/dsh-skillgrowth analyze` | Анализ нового завершённого окна; не обходит подтверждение и лимиты |
+| `/dsh-skillgrowth curate` | Advisory/no-op граница; без автоматического semantic merge/pruning |
+| `/dsh-skillgrowth pin NAME ENTRY_ID`, `/dsh-skillgrowth unpin NAME ENTRY_ID` | Защитить/снять защиту; новая ревизия инвалидирует stale candidates |
+| `/dsh-skillgrowth verify ID CASESET` | Проверить по зарегистрированному host case set; без runner/case set недоступно |
+| `/dsh-skillgrowth archive NAME`, `/dsh-skillgrowth restore NAME` | Скрыть/вернуть навык без удаления истории |
+| `/dsh-skillgrowth rollback NAME N` | Новая ревизия из сохранённой версии |
+| `/dsh-skillgrowth storage-backups` | Список migration snapshots этого scope |
+| `/dsh-skillgrowth storage-restore BACKUP_ID` | Явно вернуть валидный V1 project snapshot; см. downgrade |
+| `/dsh-skillgrowth pause`, `/dsh-skillgrowth resume` | Приостановить/возобновить learning scope |
 
-Инструмент агента `skill_loop` сохраняет только **`status`, `read`, `reflect`**. `reflect` ставит краткое вмешательство на анализ после хода, но не подтверждает успех. Через этот tool агент не может confirm, approve, менять mode, pin, verify или восстанавливать storage. Это граница полномочий API, не sandbox против произвольного кода с доступом к машине.
+Инструмент агента `dsh_skillgrowth` сохраняет только **`status`, `read`, `reflect`**. `reflect` ставит краткое вмешательство на анализ после хода, но не подтверждает успех. Через этот tool агент не может confirm, approve, менять mode, pin, verify или восстанавливать storage. Это граница полномочий API, не sandbox против произвольного кода с доступом к машине.
 
 ## Scope и приватность
 
@@ -149,8 +149,8 @@ Defaults действуют на канонический scope; суточны�
 
 Для намеренного возврата на старую версию:
 
-1. Приостановите работу; через `/skill-loop storage-backups` выберите валидный V1 **project** snapshot этого scope.
-2. Выполните `/skill-loop storage-restore BACKUP_ID`. Текущий V2 state архивируется перед восстановлением V1; квота не сбрасывается.
+1. Приостановите работу; через `/dsh-skillgrowth storage-backups` выберите валидный V1 **project** snapshot этого scope.
+2. Выполните `/dsh-skillgrowth storage-restore BACKUP_ID`. Текущий V2 state архивируется перед восстановлением V1; квота не сбрасывается.
 3. Остановите/отключите v0.2 перед установкой старого бинарника. В этом runtime learning восстановленного scope удерживается; повторный запуск v0.2 может снова мигрировать его в V2.
 
 Неизменившийся backend version домена не делает V2 читаемым для старого бинарника. Restore явный; автоматической без потерь двусторонней миграции не обещается. Rollback навыка не отменяет уже совершённые агентом действия в проекте.
@@ -173,7 +173,7 @@ npm run pack:release
 
 Общий callback допускает другие явно доверенные case executors. Встроенный native adapter имеет более узкую область: **controlled declarative ReAct environment**, где модель выбирает JSON operations над фиксированными известными примитивами, а не исполняет сгенерированный JavaScript или код через VM. Это workflow-fixture smoke, не JavaScript code-generation benchmark.
 
-[Конкретные adapters](<src/bench/adapters.js>) используют настоящий сохранённый single-role updater v0.1.3 и двухэтапный ACE-lite proposer с одинаковым lexical active-skill selection. `/skill-loop benchmark [seed=42] [logical-call-cap=96]` — только явный платный human-command: изолированное сравнение трёх arms, до пяти минут, cap1–200. Production skills и их суточный бюджет не изменяются. Публичные exports `./optimizer` и `./bench` дают extension/test contracts без реализации GEPA.
+[Конкретные adapters](<src/bench/adapters.js>) используют настоящий сохранённый single-role updater v0.1.3 и двухэтапный ACE-lite proposer с одинаковым lexical active-skill selection. `/dsh-skillgrowth benchmark [seed=42] [logical-call-cap=96]` — только явный платный human-command: изолированное сравнение трёх arms, до пяти минут, cap1–200. Production skills и их суточный бюджет не изменяются. Публичные exports `./optimizer` и `./bench` дают extension/test contracts без реализации GEPA.
 
 [Native-отчёт](<docs/validation-v0.2.0.md>) отдельно обозначает автоматический lesson-only результат, Curator component с gold insight от тестировщика и исполнение точного кандидата. Provider usage отделён от синтетического сравнения размера тела. Экономия first-turn provider tokens и общий рост качества skills не заявлены.
 

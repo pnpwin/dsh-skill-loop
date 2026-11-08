@@ -65,14 +65,14 @@ test('reasoning, system, developer, synthetic user and plugin outputs never trig
     e(5, 'developer/message', { content: 'It works' }),
     e(6, 'assistant/reasoning', { turn: 1, content: 'It works' }),
     assistant(7, [{ type: 'reasoning', text: 'It works' }, { type: 'text', text: 'Visible answer' }]),
-    e(8, 'tool/call', { turn: 1, callId: 'plugin', name: 'skill_loop_analyze', arguments: '{}' }),
+    e(8, 'tool/call', { turn: 1, callId: 'plugin', name: 'dsh_skillgrowth_analyze', arguments: '{}' }),
     result(9, '[exit code: 0] It works', {}, 1, 'plugin'),
     end(10),
   ]);
   assert.equal(selectBatch(state), null);
   const all = JSON.stringify(state);
   assert.ok(!all.includes('reasoning'));
-  assert.ok(!all.includes('skill_loop_analyze'));
+  assert.ok(!all.includes('dsh_skillgrowth_analyze'));
   assert.ok(state.events.some(entry => entry.text === 'Visible answer'));
   assert.ok(!state.events.some(entry => entry.type === 'tool/result'));
 });
