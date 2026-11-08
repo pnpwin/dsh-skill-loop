@@ -3,10 +3,11 @@ import { hasSecret, validateProject as validateLegacyProject } from './core.js';
 
 // All state transformations are pure. Only the host may supply context/receipts;
 // model output is limited to lessons and the strictly parsed delta grammar below.
-const LIMIT = { skills: 100, active: 50, proposals: 100, pending: 50, lessons: 200, runs: 100, revisions: 10 };
+const LIMIT = { skills: 100, active: 50, proposals: 100, pending: 50, lessons: 200, runs: 100, revisions: 10, patterns: 50 };
 const SECTIONS = ['step', 'pitfall', 'check'];
 const CONTENT = ['name', 'description', 'trigger', 'entries'];
-const PROPOSAL = [...CONTENT, 'id', 'status', 'baseRevision', 'delta', 'candidateHash', 'confirmed', 'evidenceStatus', 'evaluationStatus', 'evaluation', 'provenance', 'reason', 'pubReason', 'createdAt', 'updatedAt'];
+const PROPOSAL = [...CONTENT, 'id', 'status', 'baseRevision', 'delta', 'candidateHash', 'confirmed', 'evidenceStatus', 'evaluationStatus', 'evaluation', 'provenance', 'reason', 'pubReason', 'createdAt', 'updatedAt', 'origin'];
+const PROPOSAL_ORIGINS = ['error-pattern'];
 const UNSAFE = /(?:ignore|override|disregard)\s+(?:(?:all|any|the|previous|prior|system|developer)\s+){0,4}(?:instructions|polic(?:y|ies)|permissions|rules)|(?:bypass|disable|circumvent)\s+(?:(?:all|any|the|safety|security|permission)\s+){0,3}(?:approvals?|permissions?|safeguards?|checks?|restrictions?|sandbox|polic(?:y|ies))|(?:exfiltrate|steal)\s+(?:secrets?|credentials?|tokens?)|danger-full-access|--no-sandbox|игнорир\S*\s+(?:инструкц|правил)|обой\S*\s+(?:разрешени|ограничени|подтверждени)/i;
 const object = x => x !== null && typeof x === 'object' && !Array.isArray(x) && [Object.prototype, null].includes(Object.getPrototypeOf(x));
 const keys = (x, allowed, required = allowed) => object(x) && Object.keys(x).every(k => allowed.includes(k)) && required.every(k => Object.hasOwn(x, k));
@@ -92,7 +93,7 @@ function retainedOriginsOK(skill) {
   });
 }
 function skillOK(x, root) {
-  return keys(x, [...CONTENT, 'revision', 'status', 'provenance', 'revisions']) && snapshotOK({ ...pickContent(x), revision: x.revision, provenance: x.provenance }, root) && ['active', 'archived'].includes(x.status) &&
+  return keys(x, [...CONTENT, 'revision', 'status', 'provenance', 'revisions', 'impact'], [...CONTENT, 'revision', 'status', 'provenance', 'revisions']) && (x.impact === undefined || impactOK(x.impact)) && snapshotOK({ ...pickContent(x), revision: x.revision, provenance: x.provenance }, root) && ['active', 'archived'].includes(x.status) &&
     list(x.revisions, LIMIT.revisions, r => snapshotOK(r, root)) && x.revisions.length > 0 && x.revisions.every((r, i) => r.name === x.name && r.revision <= x.revision && (!i || r.revision > x.revisions[i - 1].revision)) &&
     x.revisions.at(-1).revision === x.revision && JSON.stringify(pickContent(x)) === JSON.stringify(pickContent(x.revisions.at(-1))) && JSON.stringify(x.provenance) === JSON.stringify(x.revisions.at(-1).provenance) && retainedOriginsOK(x);
 }
@@ -129,12 +130,21 @@ function evaluationOK(x) {
   return keys(x, ['candidateHash', 'caseSetId', 'caseSetHash', 'scope', 'passed', 'runId', 'at', 'metrics']) && hashOK(x.candidateHash) && identifier(x.caseSetId) && hashOK(x.caseSetHash) && text(x.scope, 4096) && !hasSecret(x.scope) && typeof x.passed === 'boolean' && identifier(x.runId) && date(x.at) && object(x.metrics) && metricsOK(x.metrics) && JSON.stringify(x.metrics).length <= 10000;
 }
 function proposalOK(x, root) {
-  return keys(x, PROPOSAL, PROPOSAL.filter(k => !['evaluation', 'pubReason'].includes(k))) && contentOK(x) && identifier(x.id) && ['pending', 'approved', 'rejected', 'superseded', 'stale'].includes(x.status) && integer(x.baseRevision) &&
+  return keys(x, PROPOSAL, PROPOSAL.filter(k => !['evaluation', 'pubReason', 'origin'].includes(k))) && contentOK(x) && identifier(x.id) && ['pending', 'approved', 'rejected', 'superseded', 'stale'].includes(x.status) && integer(x.baseRevision) &&
     (x.delta === null || (deltaOK(x.delta) && x.delta.name === x.name && x.delta.baseRevision === x.baseRevision)) && hashOK(x.candidateHash) && x.candidateHash === candidateHash(x) && typeof x.confirmed === 'boolean' &&
     ['verified', 'unverified', 'contradicted'].includes(x.evidenceStatus) && x.confirmed === (x.evidenceStatus === 'verified') && ['not-run', 'passed', 'failed'].includes(x.evaluationStatus) &&
     (x.evaluation === undefined ? x.evaluationStatus === 'not-run' : evaluationOK(x.evaluation) && x.evaluation.candidateHash === x.candidateHash && x.evaluation.scope === root && x.evaluationStatus === (x.evaluation.passed ? 'passed' : 'failed')) &&
     provenanceOK(x.provenance, root) && x.provenance.sourcePublication === undefined && x.confirmed === x.provenance.confirmed && (x.delta === null || x.delta.evidenceSeqs.every(seq => x.provenance.evidence.some(e => e.seq === seq))) && safe(x.reason) &&
-    (x.pubReason === undefined || ['auto-additive', 'auto-evaluated', 'manual', 'held-unconfirmed', 'held-evaluation', 'held-review', 'held-paused', 'held-migrated', 'held-capacity', 'held-archived', 'held-stale'].includes(x.pubReason)) && date(x.createdAt) && date(x.updatedAt);
+    (x.pubReason === undefined || ['auto-additive', 'auto-evaluated', 'manual', 'held-unconfirmed', 'held-evaluation', 'held-review', 'held-paused', 'held-migrated', 'held-capacity', 'held-archived', 'held-stale'].includes(x.pubReason)) && (x.origin === undefined || PROPOSAL_ORIGINS.includes(x.origin)) && date(x.createdAt) && date(x.updatedAt);
+}
+function impactOK(x) {
+  return object(x) && Object.keys(x).length <= 8 && ['loaded', 'outcomesVerifiedAfterLoad', 'outcomesContradictedAfterLoad', 'episodes', 'errorRecoveries', 'lastOutcomeSeq'].every(k => integer(x[k]) && x[k] >= 0) &&
+    (x.lastOutcomeSeq === 0 || x.lastOutcomeSeq > 0);
+}
+export function freshImpact() { return { loaded: 0, outcomesVerifiedAfterLoad: 0, outcomesContradictedAfterLoad: 0, episodes: 0, errorRecoveries: 0, lastOutcomeSeq: 0 }; }
+function errorPatternOK(x) {
+  return keys(x, ['signature', 'tool', 'count', 'resolvedCount', 'lastSeq']) && typeof x.signature === 'string' && /^[a-f0-9]{16}$/.test(x.signature) && identifier(x.tool) &&
+    integer(x.count) && x.count > 0 && integer(x.resolvedCount) && x.resolvedCount >= 0 && integer(x.lastSeq) && x.lastSeq >= 0;
 }
 function lessonOK(x, root) {
   return keys(x, ['id', 'kind', 'trigger', 'lesson', 'evidenceSeqs', 'provenance']) && identifier(x.id) && ['success', 'correction', 'antipattern', 'intervention'].includes(x.kind) && safe(x.trigger) && safe(x.lesson) && list(x.evidenceSeqs, 100, integer) && x.evidenceSeqs.length > 0 && provenanceOK(x.provenance, root) && x.provenance.sourcePublication === undefined && x.evidenceSeqs.every(seq => x.provenance.evidence.some(e => e.seq === seq));
@@ -143,7 +153,7 @@ const runOK = x => keys(x, ['runId', 'sessionId', 'turn', 'at', 'status', 'propo
 
 export function newProject(root) {
   if (!text(root, 4096) || hasSecret(root)) throw new TypeError('Invalid project root');
-  return { schemaVersion: 2, root, mode: 'review', paused: false, skills: [], proposals: [], runs: [], lessons: [], watermarks: {} };
+  return { schemaVersion: 3, root, mode: 'review', paused: false, skills: [], proposals: [], runs: [], lessons: [], watermarks: {}, errorPatterns: [] };
 }
 function ownershipOK(skills, proposals) {
   const owners = new Map(skills.flatMap(s => s.entries.map(e => [e.id, s.name])));
@@ -164,7 +174,8 @@ function retainedPublicationsOK(project) {
 }
 export function validateProject(x) {
   try {
-    return keys(x, ['schemaVersion', 'root', 'mode', 'paused', 'skills', 'proposals', 'runs', 'lessons', 'watermarks']) && x.schemaVersion === 2 && text(x.root, 4096) && !hasSecret(x.root) && ['review', 'auto'].includes(x.mode) && typeof x.paused === 'boolean' &&
+    return keys(x, ['schemaVersion', 'root', 'mode', 'paused', 'skills', 'proposals', 'runs', 'lessons', 'watermarks', 'errorPatterns'], ['schemaVersion', 'root', 'mode', 'paused', 'skills', 'proposals', 'runs', 'lessons', 'watermarks']) && (x.schemaVersion === 2 || x.schemaVersion === 3) && text(x.root, 4096) && !hasSecret(x.root) && ['review', 'auto'].includes(x.mode) && typeof x.paused === 'boolean' &&
+      (x.schemaVersion === 2 || list(x.errorPatterns ?? [], LIMIT.patterns, errorPatternOK)) &&
       list(x.skills, LIMIT.skills, s => skillOK(s, x.root)) && unique(x.skills, 'name') && unique(x.skills.flatMap(s => s.entries), 'id') && x.skills.filter(s => s.status === 'active').length <= LIMIT.active &&
       list(x.proposals, LIMIT.proposals, p => proposalOK(p, x.root)) && unique(x.proposals, 'id') && x.proposals.filter(p => p.status === 'pending').length <= LIMIT.pending && unique(x.proposals.filter(p => p.status === 'pending'), 'name') &&
       ownershipOK(x.skills, x.proposals) && retainedPublicationsOK(x) &&
@@ -180,7 +191,14 @@ function legacyContent(x) {
   }))) };
 }
 export function migrateProject(input) {
-  if (input?.schemaVersion === 2) { requireProject(input); return clone(input); }
+  if (input?.schemaVersion === 3) { requireProject(input); return clone(input); }
+  if (input?.schemaVersion === 2) {
+    requireProject(input);
+    // V2 -> V3 is additive only: errorPatterns ledger for tool-error antipatterns.
+    const migrated = { ...clone(input), schemaVersion: 3, errorPatterns: [] };
+    requireProject(migrated);
+    return migrated;
+  }
   if (!validateLegacyProject(input)) throw new TypeError('Invalid legacy project');
   const source = clone(input);
   const skills = source.skills.map(s => ({ ...legacyContent(s), revision: s.revision, status: s.status, provenance: s.provenance,
@@ -274,7 +292,7 @@ function record(project, c, status, id = null) {
   return result(next, status, id);
 }
 export function stage(project, draft, c, options = {}) {
-  if(!keys(options,['requirePaired','deferAuto'],[])||(options.requirePaired!==undefined&&typeof options.requirePaired!=='boolean')||(options.deferAuto!==undefined&&typeof options.deferAuto!=='boolean'))return result(project,'invalid-context');
+  if(!keys(options,['requirePaired','deferAuto','origin'],[])||(options.requirePaired!==undefined&&typeof options.requirePaired!=='boolean')||(options.deferAuto!==undefined&&typeof options.deferAuto!=='boolean')||(options.origin!==undefined&&!PROPOSAL_ORIGINS.includes(options.origin)))return result(project,'invalid-context');
   if (!validateProject(project)) return result(project, 'invalid-project');
   try {
     if (!contextOK(c)) return result(project, 'invalid-context');
@@ -305,7 +323,8 @@ export function stage(project, draft, c, options = {}) {
     }
     if (!existing && project.proposals.filter(p => p.status === 'pending').length >= LIMIT.pending) return record(next, c, 'held-capacity');
     const p = { ...candidateValue, id: idFor(c.runId, 'proposal', 0), delta: clone(d), candidateHash: hash, status: 'pending', confirmed: prov.confirmed, evidenceStatus,
-      evaluationStatus: 'not-run', provenance: prov, reason: d.reason, pubReason: prov.confirmed ? 'held-review' : 'held-unconfirmed', createdAt: c.now, updatedAt: c.now };
+      evaluationStatus: 'not-run', provenance: prov, reason: d.reason, pubReason: prov.confirmed ? 'held-review' : 'held-unconfirmed', createdAt: c.now, updatedAt: c.now,
+      ...(options.origin ? { origin: options.origin } : {}) };
     next = { ...next, proposals: [...next.proposals.map(old => old.status === 'pending' && old.name === p.name ? { ...old, status: 'superseded', updatedAt: c.now } : old), p] };
     next.proposals = trimProposals(next.proposals);
     const attempt = next.mode === 'auto' ? autoPublish(next, p.id, c.now, options) : result(next, p.confirmed ? 'pending-review' : 'held-unconfirmed', p.id);
@@ -337,7 +356,8 @@ function invalidate(proposals, skillName, now) { return proposals.map(p => p.nam
 function revisionOf(current, content, provenance) {
   if (current?.revision === Number.MAX_SAFE_INTEGER) throw new Error('Revision counter exhausted');
   const snapshot = { ...pickContent(content), revision: (current?.revision ?? 0) + 1, provenance: clone(provenance) };
-  return { ...snapshot, status: current?.status ?? 'active', revisions: [...(current?.revisions ?? []), clone(snapshot)].slice(-LIMIT.revisions) };
+  // Impact is runtime telemetry, not content history: carry it across publish/rollback/pin.
+  return { ...snapshot, status: current?.status ?? 'active', impact: clone(current?.impact ?? freshImpact()), revisions: [...(current?.revisions ?? []), clone(snapshot)].slice(-LIMIT.revisions) };
 }
 function publish(project, p, now, pubReason) {
   if (!p.confirmed || p.evidenceStatus !== 'verified') throw new Error('Unconfirmed proposal cannot publish');
@@ -446,9 +466,9 @@ export function pin(project, skillName, entryId, protectedBoolean, now) {
 }
 export function summary(project) {
   requireProject(project);
-  return { root: project.root, mode: project.mode, paused: project.paused, counts: { skills: project.skills.filter(s => s.status === 'active').length, archived: project.skills.filter(s => s.status === 'archived').length, pending: project.proposals.filter(p => p.status === 'pending').length, lessons: project.lessons.length, runs: project.runs.length },
-    pending: project.proposals.filter(p => p.status === 'pending').map(p => ({ id: p.id, name: p.name, baseRevision: p.baseRevision, confirmed: p.confirmed, evidenceStatus: p.evidenceStatus, evaluationStatus: p.evaluationStatus, candidateHash: p.candidateHash })),
-    skills: project.skills.map(s => ({ name: s.name, revision: s.revision, status: s.status })) };
+  return { root: project.root, mode: project.mode, paused: project.paused, schemaVersion: project.schemaVersion, counts: { skills: project.skills.filter(s => s.status === 'active').length, archived: project.skills.filter(s => s.status === 'archived').length, pending: project.proposals.filter(p => p.status === 'pending').length, lessons: project.lessons.length, runs: project.runs.length, patterns: (project.errorPatterns ?? []).length },
+    pending: project.proposals.filter(p => p.status === 'pending').map(p => ({ id: p.id, name: p.name, baseRevision: p.baseRevision, confirmed: p.confirmed, evidenceStatus: p.evidenceStatus, evaluationStatus: p.evaluationStatus, candidateHash: p.candidateHash, ...(p.origin ? { origin: p.origin } : {}) })),
+    skills: project.skills.map(s => ({ name: s.name, revision: s.revision, status: s.status, ...(s.impact ? { impact: clone(s.impact) } : {}) })) };
 }
 function renderBody(value, { prefix = '', footer, manifest }) {
   const sections = SECTIONS.map((section, i) => {
@@ -460,14 +480,14 @@ function renderBody(value, { prefix = '', footer, manifest }) {
 /** Structurally safe evaluation-only instructions, not an active/confirmed skill. */
 export function renderCandidate(proposal, root = proposal?.evaluation?.scope) {
   if (!proposalOK(proposal, root) || proposal.status !== 'pending') throw new TypeError('Invalid evaluation candidate');
-  const manifest = { schemaVersion: 2, name: proposal.name, proposalId: proposal.id, baseRevision: proposal.baseRevision,
+  const manifest = { schemaVersion: 3, name: proposal.name, proposalId: proposal.id, baseRevision: proposal.baseRevision,
     candidateHash: proposal.candidateHash, evaluationOnly: true, evidenceStatus: proposal.evidenceStatus, evaluationStatus: proposal.evaluationStatus };
   return renderBody(proposal, { prefix: 'EVALUATION ONLY — pending candidate, not published or active. Evidence and quality are independent.\n\n',
     footer: `Pending proposal ${proposal.id}; base revision ${proposal.baseRevision}; evidence ${proposal.evidenceStatus}; evaluation ${proposal.evaluationStatus}. Read dsh_skillgrowth read ${proposal.id} for proposal history.`, manifest });
 }
 export function renderSkill(skill) {
   if (!skillOK(skill) || skill.status !== 'active') throw new TypeError('Invalid or archived skill');
-  const manifest = { schemaVersion: 2, name: skill.name, revision: skill.revision, snapshotHash: snapshotHash(skill) };
+  const manifest = { schemaVersion: 3, name: skill.name, revision: skill.revision, snapshotHash: snapshotHash(skill) };
   // Full origin hashes/receipts stay behind read/show, not in model context.
   return renderBody(skill, { footer: `Revision ${skill.revision}. Read dsh_skillgrowth read ${skill.name} for history and provenance.`, manifest });
 }

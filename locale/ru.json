@@ -1,1 +1,1 @@
-{"meta":{"title":"DSH Skillgrowth","description":"Автоматически готовит навыки по проверенным результатам и исправлениям: обкатка с подтверждением, режим auto, версии и откат."}}
+{"meta": {"title": "DSH Skillgrowth", "description": "Автоматически готовит навыки по проверенным результатам и исправлениям: режимы lite (ReAct-уроки) + standard (ACE) по умолчанию, heavy (GEPA-lite) по команде, error-паттерны, impact-телеметрия и экспорт в .agents/skills."}}

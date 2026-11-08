@@ -1,8 +1,10 @@
 # Skillgrowth for DeepSeek Harness
 
-[GitHub release v0.2.5](<docs/release-v0.2.5.md>): code/build/CLI/bench scripts remain under `src/`; root files are documentation, manifests and DSH discovery metadata. Existing test/resource directories are not relocated. Companion package: [dsh-skillcraft](<https://github.com/pnpwin/dsh-skillcraft>).
+[GitHub release v0.3.0](<docs/release-v0.3.0.md>): three independently configurable learning modes — **lite** (ReAct-lessons, no evaluator), **standard** (ACE-lite delta curation with paired evaluation) and **heavy** (GEPA-lite evolution) — deterministic tool-error antipattern capture, long-term impact telemetry, and filesystem delivery of published skills to `.agents/skills` / `~/.agents/skills` per the [agentskills.io](<https://agentskills.io/specification>) convention. Code/build/CLI/bench scripts remain under `src/`; root files are documentation, manifests and DSH discovery metadata. Companion package: [dsh-skillcraft](<https://github.com/pnpwin/dsh-skillcraft>).
 
 [Русская версия](<README.ru.md>) · [GitHub](<https://github.com/pnpwin/dsh-skillgrowth>) · [MIT](<LICENSE>) · `@pnpwin/dsh-skillgrowth`
+
+**v0.3.0 highlights:** mode checkboxes (default lite+standard) with `escalation` policy; `schemaVersion:3` additive migration (error-pattern ledger, per-skill impact counters, proposal origin); repeated tool errors → antipattern lessons + templated pitfall inserts (zero LLM); published skills exported as `<gitRoot>/.agents/skills/<name>/SKILL.md` (foreign files never overwritten, drift detected); `/dsh-skillgrowth evolve` runs Pareto-constrained reflection evolution on a registered trusted paired case set and publishes only an observed-gain winner; budgets extended (40/day aux rail + per-mode quotas lite16/standard24, heavy 60 calls/run, 1 run/day). [Full release notes](<docs/release-v0.3.0.md>) · [Skill layout conventions](<docs/skills-layout.md>).
 
 **v0.2.5:** Curator now follows a compact rubric derived from the ONE DSH skill creator; a separate native paired evaluator gates automatic publication, with at most one adaptation-only refinement. Existing mode/data/budgets are preserved. [Integration, trusted suites and limits](<docs/curator-evaluator-v0.2.1.md>). A matching owner-reviewed project suite is required; none is invented from model prose.
 

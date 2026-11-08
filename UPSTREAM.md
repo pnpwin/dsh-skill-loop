@@ -39,7 +39,11 @@ This project borrows ideas and independently implements JavaScript/native DSH in
 - [Recursive Harness Self-Improvement](<https://arxiv.org/abs/2607.15524>): feedback-driven refinement and bounded revision history. “RHI-inspired” is not a reproduction of its optimizer or evaluation.
 - [Hermes skill curator, pinned source](<https://github.com/NousResearch/hermes-agent/blob/6b21d0564de0492e2ebd0d8f63fca86c03b5c892/agent/curator.py>): skill lifecycle and recoverable curation.
 - [ECC Continuous Learning v2, pinned source](<https://github.com/affaan-m/ECC/blob/d2ef2680594f9a17526a6e1a2e18b3d242c5d17b/skills/continuous-learning-v2/SKILL.md#how-it-works>): observations, atomic lessons and project-scoped proposals.
-- [GEPA paper v2](<https://arxiv.org/html/2507.19457v2>): a reference for independently evaluated candidate optimization, **not an implemented feature**. This bundle provides proposer/evaluator contracts but no GEPA dependency, mode, search, Pareto selection or recombination algorithm.
+- [GEPA paper v2](<https://arxiv.org/html/2507.19457v2>): reflection-driven evolution with Pareto-constrained selection. Since v0.3.0 a **GEPA-lite** mode implements the idea natively (no upstream code): candidate variants proposed by the existing Curator from adaptation-only feedback, Pareto front by gains/coverage/regressions/delta-size, seeded parent selection, host-side recombination, holdout only at finalize. Not a reproduction of upstream benchmark results.
+
+### Skill artifact conventions
+
+- [Agent Skills specification](<https://agentskills.io/specification>) (agentskills.io, open format): `SKILL.md` frontmatter rules, `scripts/`/`references/`/`assets/`/`evals/` layout, progressive disclosure. Used as the reference for the v0.3 filesystem delivery layout (`.agents/skills`, `~/.agents/skills`); see [docs/skills-layout.md](docs/skills-layout.md). Directory conventions match DSH native filesystem skill sources (`project-agents` 200 / `user-agents` 500).
 
 ## Authoring license notice
 

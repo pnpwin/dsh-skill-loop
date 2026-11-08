@@ -42,8 +42,10 @@ export function createFixtureEnvironment(testCase){
 }
 export function candidateInstructions(candidate,scope){
   if(candidate===null||candidate===undefined)return null;
-  if(candidate.entries&&candidate.candidateHash)return {name:candidate.name,description:candidate.description,content:ace.renderCandidate(candidate,scope)};
+  // Active skills render as skills even when wrapped as identity candidates
+  // (GEPA-lite baseline arm); pending proposals always carry status 'pending'.
   if(candidate.entries&&candidate.status==='active')return {name:candidate.name,description:candidate.description,content:ace.renderSkill(candidate)};
+  if(candidate.entries&&candidate.candidateHash)return {name:candidate.name,description:candidate.description,content:ace.renderCandidate(candidate,scope)};
   if(candidate.status==='active'&&Array.isArray(candidate.steps))return {name:candidate.name,description:candidate.description,content:renderLegacy(candidate)};
   throw Error('unsupported-native-candidate');
 }

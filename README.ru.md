@@ -1,8 +1,10 @@
 # Skillgrowth для DeepSeek Harness
 
-[GitHub release v0.2.5](<docs/release-v0.2.5.md>): код/build/CLI/bench scripts — в `src/`; корневые файлы — документация, manifests и DSH discovery metadata. Каталоги тестов и ресурсов не переносились. Сопутствующий пакет: [dsh-skillcraft](<https://github.com/pnpwin/dsh-skillcraft>).
+[GitHub release v0.3.0](<docs/release-v0.3.0.md>): три независимо конфигурируемых режима обучения — **lite** (ReAct-уроки без evaluator'а), **standard** (ACE-lite с paired evaluation) и **heavy** (GEPA-lite эволюция) — детерминированный захват повторяющихся ошибок инструментов как антипаттернов, impact-телеметрия долгосрочной пользы и файловая доставка опубликованных скиллов в `.agents/skills` / `~/.agents/skills` по конвенции [agentskills.io](<https://agentskills.io/specification>). Код/build/CLI/bench scripts — в `src/`; корневые файлы — документация, manifests и DSH discovery metadata. Сопутствующий пакет: [dsh-skillcraft](<https://github.com/pnpwin/dsh-skillcraft>).
 
 [English](<README.md>) · [GitHub](<https://github.com/pnpwin/dsh-skillgrowth>) · [MIT](<LICENSE>) · `@pnpwin/dsh-skillgrowth`
+
+**v0.3.0:** режимы-чекбоксы (default lite+standard) с политикой `escalation`; аддитивная миграция `schemaVersion:3` (ledger error-паттернов, impact-счётчики, `proposal.origin`); повторные ошибки tool'а → уроки-антипаттерны и шаблонные pitfall-вставки (ноль LLM-вызовов); публикация экспортируется в `<gitRoot>/.agents/skills/<name>/SKILL.md` (чужие файлы не перезаписываются, drift детектируется); `/dsh-skillgrowth evolve` — Pareto-эволюция на зарегистрированном trusted paired case set с публикацией только observed-gain победителя; бюджеты расширены (rail 40/день + квоты режимов lite16/standard24, heavy 60 вызовов/run, 1 run/день). [Полные release notes](<docs/release-v0.3.0.md>) · [Конвенции layout скиллов](<docs/skills-layout.md>).
 
 **v0.2.5:** Curator получает компактные правила из ЕДИНОГО DSH skill creator; отдельный native paired evaluator проверяет автоматическую публикацию. Не более одного уточнения по adaptation, без обучения на holdout. Режим, данные и бюджеты сохраняются. [Интеграция, trusted suites и пределы](<docs/curator-evaluator-v0.2.1.md>). Для сравнения нужен подходящий проверенный владельцем набор задач; модельный spec сам не становится полномочием.
 

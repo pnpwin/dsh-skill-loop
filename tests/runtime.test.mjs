@@ -12,7 +12,7 @@ const root=canonicalRoot(process.cwd());
 const key=value=>createHash('sha256').update(value).digest('hex').slice(0,32);
 const schema=predicate=>({parse(value){if(predicate&&!predicate(value))throw Error('invalid');return value;},int(){return this;},nonnegative(){return this;},max(){return this;}});
 const z={custom:schema,object:()=>schema(),string:()=>schema(),number:()=>schema(),array:()=>schema()};
-const config={enabled:true,requirePairedEvaluation:false,initialMode:'review',maxInputChars:16000,maxOutputTokens:3000,timeoutMs:5000,cooldownMs:0,dailyReviews:12,provider:'',model:''};
+const config={enabled:true,requirePairedEvaluation:false,initialMode:'review',maxInputChars:16000,maxOutputTokens:3000,timeoutMs:5000,cooldownMs:0,dailyReviews:12,provider:'',model:'',skillDelivery:'provider',learnLite:true,learnStandard:true,learnHeavy:false};
 function proposalFor(options,{assistantOnly=false}={}){
   const data=JSON.parse(options.messages[0].content[0].text);
   const observations=data.observations??data.workEvidence;

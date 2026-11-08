@@ -14,7 +14,7 @@ async function fixture({project,control,fail,initialMode='review'}={}){
 }
 test('legacy read is pure, migration backup is durable before canonical V2 write',async()=>{
   const old={...legacy.newProject(root),mode:'auto',paused:true};const f=await fixture({project:old});
-  assert.equal(f.store.read(root).schemaVersion,2);assert.equal(f.writes.length,0);assert.equal(f.store.read(root).mode,'auto');assert.equal(f.store.read(root).paused,true);
+  assert.equal(f.store.read(root).schemaVersion,3);assert.equal(f.writes.length,0);assert.equal(f.store.read(root).mode,'auto');assert.equal(f.store.read(root).paused,true);
   await f.store.mutate(root,p=>({...p,paused:false}));assert.equal(f.writes[0].domain,'local_skill_loop_backups');assert.equal(f.writes[1].table,'projects');
   assert.ok(ace.validateProject(f.tables.local_skill_loop.projects.get(key)));assert.deepEqual([...f.tables.local_skill_loop_backups.snapshots.values()][0].payload,old);await f.store.close();
 });
@@ -46,7 +46,7 @@ test('restoration archives current V2 and writes old-reader-compatible controls'
   const old=legacy.newProject(root),f=await fixture({project:old,control:v1Control()});await f.store.mutate(root,p=>({...p,mode:'auto'}));
   const backup=f.store.backups(root).find(s=>s.kind==='project'&&s.format===1);
   await f.store.reserve(root,{runId:'r',stage:'reflector',manual:true,dailyReviews:12,maxAuxCallsPerDay:12,cooldownMs:0});
-  await f.store.restore(root,backup.id);assert.ok(legacy.validateProject(f.tables.local_skill_loop.projects.get(key)));assert.equal(f.tables.local_skill_loop.controls.get(key).schemaVersion,undefined);assert.equal(f.tables.local_skill_loop.controls.get(key).attempts,10);assert.ok(f.store.backups(root).some(s=>s.format===2));await f.store.close();
+  await f.store.restore(root,backup.id);assert.ok(legacy.validateProject(f.tables.local_skill_loop.projects.get(key)));assert.equal(f.tables.local_skill_loop.controls.get(key).schemaVersion,undefined);assert.equal(f.tables.local_skill_loop.controls.get(key).attempts,10);assert.ok(f.store.backups(root).some(s=>s.format===3));await f.store.close();
 });
 test('guard cancellation before commit leaves canonical state untouched',async()=>{
   const f=await fixture();let allow=true;await assert.rejects(f.store.mutate(root,p=>{allow=false;return p;},{guard:()=>allow}),/review-cancelled/);assert.equal(f.tables.local_skill_loop.projects.size,0);await f.store.close();
@@ -154,7 +154,7 @@ test('abort during durable restore backup leaves canonical V2 untouched',async()
   await assert.rejects(f.store.restore(root,f.backupId,{signal:controller.signal}),/abort/i);
   assert.deepEqual(f.tables.local_skill_loop.projects.get(key),canonical);
   assert.equal(f.writes.slice(before).some(op=>op.table==='projects'),false);
-  assert.ok(f.store.backups(root).some(s=>s.format===2));await f.store.close();
+  assert.ok(f.store.backups(root).some(s=>s.format===3));await f.store.close();
 });
 
 test('after canonical V1 restore commits cancellation cannot skip quota-preserving controls merge',async()=>{
@@ -166,7 +166,7 @@ test('after canonical V1 restore commits cancellation cannot skip quota-preservi
   assert.ok(legacy.validateProject(f.tables.local_skill_loop.projects.get(key)));
   const control=f.tables.local_skill_loop.controls.get(key);
   assert.equal(control.schemaVersion,undefined);assert.equal(control.attempts,10);assert.equal(control.status,'storage-restored');
-  assert.ok(f.store.backups(root).some(s=>s.kind==='project'&&s.format===2));await f.store.close();
+  assert.ok(f.store.backups(root).some(s=>s.kind==='project'&&s.format===3));await f.store.close();
 });
 
 test('restore controls partial failure reports error with factual V1 canonical and retained V2 backup',async()=>{
@@ -175,7 +175,7 @@ test('restore controls partial failure reports error with factual V1 canonical a
   await assert.rejects(f.store.restore(root,f.backupId),/write-failed/);
   assert.ok(legacy.validateProject(f.tables.local_skill_loop.projects.get(key)));
   assert.deepEqual(f.tables.local_skill_loop.controls.get(key),beforeControl);
-  assert.equal(beforeControl.auxCalls,10);assert.ok(f.store.backups(root).some(s=>s.kind==='project'&&s.format===2));
+  assert.equal(beforeControl.auxCalls,10);assert.ok(f.store.backups(root).some(s=>s.kind==='project'&&s.format===3));
   assert.ok(f.store.backups(root).some(s=>s.kind==='control'&&s.format===2));await f.store.close();
 });
 

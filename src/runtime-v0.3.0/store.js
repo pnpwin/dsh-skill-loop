@@ -49,12 +49,12 @@ export function validControl(v) {
   if (!Number.isSafeInteger(v.attempts)||v.attempts<0 || !Array.isArray(v.recent)||v.recent.length>100||!v.recent.every(x=>typeof x==='string'))return false;
   if(typeof v.status!=='string'||typeof v.code!=='string'||!Number.isFinite(v.cooldownUntil)||typeof v.updatedAt!=='string')return false;
   if(v.schemaVersion!==undefined&&v.schemaVersion!==2)return false;
-  if(Object.keys(v).some(k=>!['schemaVersion','root','date','attempts','auxCalls','recent','status','code','cooldownUntil','updatedAt','telemetry'].includes(k)))return false;
-  return v.schemaVersion!==2 || (Number.isSafeInteger(v.auxCalls)&&v.auxCalls>=0 && (v.telemetry===undefined || validTelemetry(v.telemetry)));
+  if(Object.keys(v).some(k=>!['schemaVersion','root','date','attempts','auxCalls','liteCalls','standardCalls','heavyRuns','recent','status','code','cooldownUntil','updatedAt','telemetry'].includes(k)))return false;
+  return v.schemaVersion!==2 || (Number.isSafeInteger(v.auxCalls)&&v.auxCalls>=0 && (v.liteCalls===undefined||Number.isSafeInteger(v.liteCalls)) && (v.standardCalls===undefined||Number.isSafeInteger(v.standardCalls)) && (v.heavyRuns===undefined||Number.isSafeInteger(v.heavyRuns)) && (v.telemetry===undefined || validTelemetry(v.telemetry)));
 }
 function controlOf(raw,root,now) {
   const same = raw?.date===dateOf(now);
-  return {schemaVersion:2,root,date:dateOf(now),attempts:same?raw.attempts:0,auxCalls:same?(raw.auxCalls??raw.attempts):0,recent:raw?.recent??[],status:raw?.status??'idle',code:raw?.code??'',cooldownUntil:same?raw.cooldownUntil:0,updatedAt:raw?.updatedAt??now,telemetry:raw?.telemetry??[]};
+  return {schemaVersion:2,root,date:dateOf(now),attempts:same?raw.attempts:0,auxCalls:same?(raw.auxCalls??raw.attempts):0,liteCalls:same?(raw.liteCalls??0):0,standardCalls:same?(raw.standardCalls??0):0,heavyRuns:same?(raw.heavyRuns??0):0,recent:raw?.recent??[],status:raw?.status??'idle',code:raw?.code??'',cooldownUntil:same?raw.cooldownUntil:0,updatedAt:raw?.updatedAt??now,telemetry:raw?.telemetry??[]};
 }
 function validSnapshot(v) {
   if(!record(v)||v.schemaVersion!==1||typeof v.root!=='string'||!['project','control'].includes(v.kind)||typeof v.at!=='string')return false;
@@ -89,6 +89,7 @@ export async function openProjectStore(ctx,{z,now=()=>new Date().toISOString(),i
     const rawProject=projects.get(keyOf(root));
     if(rawProject&&legacy.validateProject(rawProject))await saveBackup(root,'project',rawProject);
     else if(!rawProject)await saveBackup(root,'project',{...legacy.newProject(root),mode:fresh(root).mode});
+    else if(rawProject.schemaVersion===2)await saveBackup(root,'project',rawProject);
     if(rawControl&&rawControl.schemaVersion!==2)await saveBackup(root,'control',rawControl);
   }
   const read = root => {const raw=projects.get(keyOf(root));return raw?ace.migrateProject(raw):fresh(root);};
@@ -104,17 +105,21 @@ export async function openProjectStore(ctx,{z,now=()=>new Date().toISOString(),i
       const next=await fn(current);if(!ace.validateProject(next))throw Error('invalid-project-update');
       check(options);await projects.put(keyOf(root),next);invalidate();return next;
     });},
-    async reserve(root,{runId,stage,manual=false,dailyReviews=12,maxAuxCallsPerDay=12,cooldownMs=60000,signal,guard}={}){return serial(root,async()=>{
+    async reserve(root,{runId,stage,manual=false,dailyReviews=12,maxAuxCallsPerDay=12,cooldownMs=60000,liteMaxCallsPerDay,standardMaxCallsPerDay,heavyMaxRunsPerDay,mode,signal,guard}={}){return serial(root,async()=>{
       check({signal,guard});const at=now(),raw=controls.get(keyOf(root)),c=controlOf(raw,root,at);
+      const callMode=mode??(stage==='reflector'?'lite':stage==='heavy'?'heavy':'standard');
       if(stage==='reflector'){
         if(c.recent.includes(runId))return 'already-reviewed';
         if(c.attempts>=dailyReviews)return 'daily-budget';
         if(!manual&&Date.parse(at)<c.cooldownUntil)return 'cooldown';
-      }else if(!['curator','evaluator'].includes(stage))throw Error('invalid-review-stage');
+      }else if(!['curator','evaluator','heavy'].includes(stage))throw Error('invalid-review-stage');
+      if(stage==='heavy'){if(c.heavyRuns>=(heavyMaxRunsPerDay??1))return 'heavy-budget';}
+      else if(callMode==='lite'&&liteMaxCallsPerDay!==undefined&&c.liteCalls>=liteMaxCallsPerDay)return 'lite-budget';
+      else if(callMode==='standard'&&standardMaxCallsPerDay!==undefined&&c.standardCalls>=standardMaxCallsPerDay)return 'standard-budget';
       if(c.auxCalls>=maxAuxCallsPerDay)return 'auxiliary-budget';
       await backupBeforeControlWrite(root,raw);
       check({signal,guard});
-      await controls.put(keyOf(root),{...c,attempts:c.attempts+(stage==='reflector'?1:0),auxCalls:c.auxCalls+1,recent:stage==='reflector'?[...c.recent,runId].slice(-100):c.recent,status:stage,code:'',cooldownUntil:stage==='reflector'?Date.parse(at)+cooldownMs:c.cooldownUntil,updatedAt:at});
+      await controls.put(keyOf(root),{...c,attempts:c.attempts+(stage==='reflector'?1:0),auxCalls:c.auxCalls+1,liteCalls:c.liteCalls+(callMode==='lite'?1:0),standardCalls:c.standardCalls+(callMode==='standard'?1:0),heavyRuns:c.heavyRuns+(stage==='heavy'?1:0),recent:stage==='reflector'?[...c.recent,runId].slice(-100):c.recent,status:stage,code:'',cooldownUntil:stage==='reflector'?Date.parse(at)+cooldownMs:c.cooldownUntil,updatedAt:at});
       return 'claimed';
     });},
     async finish(root,status,code='',details=null){return serial(root,async()=>{

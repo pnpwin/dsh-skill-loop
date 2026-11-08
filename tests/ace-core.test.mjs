@@ -35,10 +35,10 @@ function withEntries(project, entries) {
 
 test('V2 new state is strict, bounded and separate from V1', () => {
   const p = core.newProject(ROOT);
-  assert.deepEqual(p, { schemaVersion: 2, root: ROOT, mode: 'review', paused: false, skills: [], proposals: [], runs: [], lessons: [], watermarks: {} });
+  assert.deepEqual(p, { schemaVersion: 3, root: ROOT, mode: 'review', paused: false, skills: [], proposals: [], runs: [], lessons: [], watermarks: {}, errorPatterns: [] });
   assert.equal(core.validateProject(p), true);
   assert.equal(legacy.validateProject(p), false);
-  for (const bad of [null, {}, [], legacy.newProject(ROOT), { ...p, schemaVersion: 3 }, { ...p, surprise: true }, { ...p, watermarks: { s: -1 } }, { ...p, skills: Array(1) }, { ...p, paused: 'false' }, { ...p, mode: 'softauto' }]) assert.equal(core.validateProject(bad), false);
+  for (const bad of [null, {}, [], legacy.newProject(ROOT), { ...p, schemaVersion: 4 }, { ...p, surprise: true }, { ...p, watermarks: { s: -1 } }, { ...p, skills: Array(1) }, { ...p, paused: 'false' }, { ...p, mode: 'softauto' }]) assert.equal(core.validateProject(bad), false);
   assert.throws(() => core.newProject('api_key=secret-value'), /root/);
   const populated = published();
   for (const bad of [
@@ -374,7 +374,7 @@ test('V1 migration is deterministic/read-compatible and preserves UUIDs, counter
   const again = core.migrateProject(next);
   assert.deepEqual(again, next);
   assert.notEqual(again, next);
-  assert.throws(() => core.migrateProject({ ...old, schemaVersion: 3 }), /legacy/);
+  assert.throws(() => core.migrateProject({ ...old, schemaVersion: 4 }), /Invalid project|legacy/);
   assert.throws(() => core.migrateProject({ ...next, bad: true }), /project/);
 });
 
@@ -545,7 +545,7 @@ test('unconfirmed pending candidates compile for independent evaluation without 
   assert.match(body, /evidence unverified; evaluation not-run/);
   for (const entry of proposal.entries) assert.ok(body.includes(`[${entry.id}] ${entry.text}`));
   const manifest = JSON.parse(body.match(/<!-- ACE-MANIFEST (.+) -->/)[1]);
-  assert.deepEqual(manifest, { schemaVersion: 2, name: NAME, proposalId: proposal.id, baseRevision: 0, candidateHash: proposal.candidateHash, evaluationOnly: true, evidenceStatus: 'unverified', evaluationStatus: 'not-run' });
+  assert.deepEqual(manifest, { schemaVersion: 3, name: NAME, proposalId: proposal.id, baseRevision: 0, candidateHash: proposal.candidateHash, evaluationOnly: true, evidenceStatus: 'unverified', evaluationStatus: 'not-run' });
   assert.equal(manifest.revision, undefined); assert.equal(manifest.snapshotHash, undefined);
   assert.equal(proposal.provenance.confirmed, false);
   assert.equal(staged.project.skills.length, 0);
@@ -701,7 +701,7 @@ test('compact renderer identifies exact snapshots and entries without bulk prove
   for (const heading of ['Trigger', 'Steps', 'Pitfalls', 'Checks']) assert.ok(body.includes(`## ${heading}`));
   for (const entry of p.skills[0].entries) assert.ok(body.includes(`[${entry.id}] ${entry.text}`));
   const manifest = JSON.parse(body.match(/<!-- ACE-MANIFEST (.+) -->/)[1]);
-  assert.deepEqual(manifest, { schemaVersion: 2, name: NAME, revision: 1, snapshotHash: core.snapshotHash(p.skills[0]) });
+  assert.deepEqual(manifest, { schemaVersion: 3, name: NAME, revision: 1, snapshotHash: core.snapshotHash(p.skills[0]) });
   assert.equal(body.includes('session-1'), false);
   assert.equal(body.includes('## Provenance'), false);
   assert.match(body, /read learned-verify-results for history and provenance/);

@@ -1,1 +1,1 @@
-{"meta":{"title":"DSH Skillgrowth","description":"Automatically drafts project skills from verified work and corrections, with review/auto publication, revision history and rollback."}}
+{"meta": {"title": "DSH Skillgrowth", "description": "Automatically drafts project skills from verified work and corrections: lite (ReAct-lessons) + standard (ACE) modes by default, heavy (GEPA-lite) on command, error-patterns, impact telemetry and .agents/skills export."}}
