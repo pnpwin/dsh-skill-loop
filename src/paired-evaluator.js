@@ -27,7 +27,10 @@ export function createPairedEvaluatorRegistry({runCase,hashCandidate,hashBaselin
   function binding(candidate,baseline,caseSetId,scope){
     const set=sets.get(caseSetId);if(!set)throw Error('unregistered-paired-case-set');if(typeof scope!=='string'||!scope.startsWith('/')||scope.includes('\0'))throw Error('invalid-paired-scope');
     const c=immutableSnapshot(candidate),b=baseline==null?null:immutableSnapshot(baseline),candidateHash=hashCandidate(c),baselineHash=hashBaseline(b);
-    if(!hash(candidateHash)||!(baselineHash===null||hash(baselineHash))||c.candidateHash!==candidateHash||c.baseRevision!==(b?.revision??0)||c.delta?.baseHash!==baselineHash)throw Error('paired-baseline-mismatch');
+    // Create candidates (baseRevision 0) carry baseHash null by definition; a
+    // migrated legacy preview has delta:null and must still bind for verify.
+    const declaredBase=c.baseRevision===0?null:c.delta?.baseHash;
+    if(!hash(candidateHash)||!(baselineHash===null||hash(baselineHash))||c.candidateHash!==candidateHash||c.baseRevision!==(b?.revision??0)||declaredBase!==baselineHash)throw Error('paired-baseline-mismatch');
     return {candidate:c,baseline:b,candidateHash,baselineHash,caseSetId,caseSetHash:set.hash,scope,set};
   }
   async function runPhase(bind,phase,{budget,signal}){

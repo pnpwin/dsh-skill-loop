@@ -1,5 +1,5 @@
 {
-  "version": "0.3.0",
+  "version": "0.3.1",
   "files": {
     "ace-core.js": "beec43aafa7d21f6435a8aa6b2e5a9c84f1d31ca30071dc6e74724471b02cbea",
     "bench/adapters.js": "b790c58e3e79edc66bc3b16ddb56f5255208460f4597117e41c9d9a92b92b6c3",
@@ -27,7 +27,7 @@
     "index.js": "588c50f897f8b2b7b6eb076e26dd16dfa066731936bcc23e17a805473030626c",
     "modes.js": "e2e73b863ea1dfe743b13cc4baea3ab7a3e655b6748eea499142b77d13dde215",
     "optimizer.js": "68ba9951f3914455a43c24c9639a79b369d95ab93d719da57fa84df16db52fe3",
-    "paired-evaluator.js": "31561aa673cf78e18b89b6931f37a5bddd413d2e62307e94f1379d25b3526cc9",
+    "paired-evaluator.js": "02c066b7ef68ddd97f800f26719b5aebd4238574a7dc912cdf43230c909dace1",
     "projection.js": "e315b629ca2c19f5fde64ec93f5bbe0baea40ecdf0f3a3050836b94dee327ebe",
     "prompts.js": "6ef5c09085b465fa9a58d157cb8283be416496a7bfa810d842e0d190f21b5644",
     "review.js": "a7b3d53e71f486e08a988f89f1c91f6d2d273f249bec6646f28dadce27340f3e",

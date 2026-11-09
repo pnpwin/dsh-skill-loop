@@ -1,23 +1,23 @@
 {
   "name": "@pnpwin/dsh-skillgrowth",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "type": "module",
   "description": "Native lite (ReAct-lessons) + ACE (delta curation with paired evaluation) + heavy (GEPA-lite evolution) procedural learning for DSH, with error-pattern capture, impact telemetry and .agents/skills filesystem delivery.",
   "exports": {
-    ".": "./src/runtime-v0.3.0/index.js",
+    ".": "./src/runtime-v0.3.1/index.js",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./src/icon.svg",
-    "./optimizer": "./src/runtime-v0.3.0/optimizer.js",
-    "./paired-evaluator": "./src/runtime-v0.3.0/paired-evaluator.js",
-    "./bench": "./src/runtime-v0.3.0/bench/index.js"
+    "./optimizer": "./src/runtime-v0.3.1/optimizer.js",
+    "./paired-evaluator": "./src/runtime-v0.3.1/paired-evaluator.js",
+    "./bench": "./src/runtime-v0.3.1/bench/index.js"
   },
   "files": [
     "src/*.js",
     "src/bench/**/*.js",
     "src/evolve/**/*.js",
-    "src/runtime-v0.3.0/**/*.js",
-    "src/runtime-v0.3.0/snapshot.json",
+    "src/runtime-v0.3.1/**/*.js",
+    "src/runtime-v0.3.1/snapshot.json",
     "src/validation/**/*.json",
     "src/icon.svg",
     "locale/*.json",

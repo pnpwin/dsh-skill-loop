@@ -18,3 +18,21 @@ test('legacy soft policy and explicit human approval remain distinct',()=>{const
 test('wrong baseline or no-gain persisted metrics cannot satisfy strict gate',async()=>{const s=staged(),c=s.project.proposals[0],r=registry(async a=>{a.budget.reserve('generator');return validResult(a.arm==='candidate');}),{receipt}=await evaluate(r,c);for(const metrics of [{...receipt.metrics,baselineHash:'a'.repeat(64)},{...receipt.metrics,comparison:{...receipt.metrics.comparison,verdict:'no-gain'}}]){const p=ace.attachEvaluation(s.project,c.id,{...receipt,metrics},now);assert.equal(ace.autoPublish(p,c.id,now,{requirePaired:true}).status,'held-evaluation');}});
 test('staging deferral cannot reuse an old passed receipt before fresh registry checks',async()=>{const s=staged(),c=s.project.proposals[0],r=registry(async a=>{a.budget.reserve('generator');return validResult(a.arm==='candidate');}),{receipt}=await evaluate(r,c),p=ace.attachEvaluation(s.project,c.id,receipt,now);assert.equal(ace.autoPublish(p,c.id,now,{requirePaired:true,deferAuto:true}).status,'held-evaluation');assert.equal(p.skills.length,0);});
 test('abort releases an unresponsive Host callback without publishing a receipt',async()=>{const controller=new AbortController();let ready;const started=new Promise(r=>ready=r);const r=registry(a=>{a.budget.reserve('generator');ready();return new Promise(()=>{});}),c=staged().project.proposals[0],run=r.train(c,'ordered-pairs',{scope:root,budget:createCallBudget(8),signal:controller.signal});await started;controller.abort();await assert.rejects(run);});
+test('migrated legacy create preview with delta:null still binds and evaluates',async()=>{
+  // simulate a v0.2.5-migrated proposal: content staged, delta dropped by migration
+  const stagedProposal=staged().project.proposals[0];
+  const migrated={...stagedProposal,delta:null,pubReason:'held-migrated'};
+  const r=registry(async a=>{a.budget.reserve('generator');return validResult(a.arm==='candidate');});
+  const budget=createCallBudget(8);
+  const training=await r.train(migrated,'ordered-pairs',{scope:root,budget});
+  assert.equal(training.verdict,'train-gain');
+  const {receipt}=await r.finalize(migrated,'ordered-pairs',{scope:root,budget,training});
+  assert.equal(receipt.passed,true);
+  assert.equal(r.owns(receipt,{candidateHash:migrated.candidateHash,scope:root}),true);
+});
+test('migrated legacy update preview without delta still refuses to bind',async()=>{
+  const stagedProposal=staged().project.proposals[0];
+  const migratedUpdate={...stagedProposal,baseRevision:1,delta:null};
+  const r=registry(async a=>{a.budget.reserve('generator');return validResult(true);});
+  await assert.rejects(r.train(migratedUpdate,'ordered-pairs',{scope:root,budget:createCallBudget(8)}),/paired-baseline-mismatch/);
+});
