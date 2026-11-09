@@ -52,3 +52,34 @@
 - Полный трёхрукийй A/B benchmark (no-memory/legacy/ace с реальными агентами) требует полного DSH agentLoop (NativeToolExecutor внутри asar) — не воспроизводится standalone. Proposer-path обеих рук протестирован с реальным LLM.
 - Desktop profile (основной) имеет v0.3.0 установленный, но текущая GUI-сессия работает со старым fiber. Новые сессии получат v0.3.0.
 - Headless e2e (`dsh headless "task"`) — плагин инициализируется и создаёт backup, но async learning cycle не успевает завершиться до выхода процесса. Это ожидаемо для one-shot headless.
+
+
+## Полный реальный A/B benchmark (обновление 2026-11-09)
+
+Выполнен НАСТОЯЩИЙ трёхрукийй benchmark через нативный dispatch команды в headless-профиле DSH
+(patch-плагин `/tmp/e2e-bench-trigger` вызывает `commands.execute(agent, '/dsh-skillgrowth benchmark 42 96', [], signal)`
+с изолированным id агента; агент основной задачи поллит маркер-файл, удерживая процесс).
+
+**Результат** (полный отчёт: [benchmark-real-2026-11-09.json](benchmark-real-2026-11-09.json)):
+
+- status: completed, 194.2s, 61/96 logical calls
+- **18/18 кейсов PASS** (3 adaptation + 3 holdout × 3 руки: no-memory / legacy / ace)
+- Токены: no-memory 4720in/1038out, legacy 4407in/3233out, ace 3900in/1126out (cache ~15-16k у всех)
+- legacy: 1 proposal, 2 proposal errors; ace: 0 proposals, 3 proposal errors
+- Production storage не тронут (experiment-only in-memory snapshots — подтверждено)
+
+Интерпретация: фикстуры `native-declarative-workflow-v1` проходятся deepseek-chat без памяти
+на всех руках — сигнала для обучения нет (ошибок нет), proposals в основном отклоняются
+валидацией draft'ов на синтетическом feedback. Это честный результат smoke-уровня,
+не качественный бенчмарк (как и заявлено в методологии плагина).
+
+### Как воспроизвести
+
+```bash
+export DEEPSEEK_API_KEY=...  # или через credentials DSH
+rm -f /tmp/e2e-bench-done /tmp/e2e-bench-result.json
+dsh --profile headless --patch /tmp/e2e-bench-patch.yml   "Run: while [ ! -f /tmp/e2e-bench-done ]; do sleep 15; done; echo BENCHMARK FINISHED"
+```
+
+Требуются: `/tmp/e2e-bench-trigger/index.js` (package.json + index.js, см. /tmp) и
+`/tmp/e2e-bench-patch.yml` (insert file:// plugin).
